@@ -36,3 +36,5 @@ Thumbs.db
 node_modules/
 # local backups
 .env.local.backup
+# Credentials
+credentials.txt

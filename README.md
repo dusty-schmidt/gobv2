@@ -20,6 +20,7 @@ gob/                        # Workspace root
 │   └── docs/            # Documentation
 ├── nano/                 # 🔬 Simple chatbot with communal brain (Tier 1)
 │   └── main.py          # Simple chatbot implementation
+
 ├── tests/               # 🧪 Test suite
 │   ├── test_memory_sharing.py    # Communal brain tests
 │   ├── test_mini_chatbot.py      # Mini chatbot tests

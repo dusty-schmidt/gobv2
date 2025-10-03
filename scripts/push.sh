@@ -69,8 +69,8 @@ if git remote | grep -q '^origin$'; then
   git push -u origin main
 
   if git ls-remote --exit-code --heads origin master >/dev/null 2>&1; then
-    print "Remote branch 'master' exists. Attempting to delete remote 'master' (this may fail if it's the default branch)..."
-    git push origin --delete master || print "Failed to delete remote 'master' (you may not have permissions or it may be the default branch)."
+    print "Remote branch 'master' exists. Attempting to delete remote 'master' (this may fail if it's the repository default branch on the server)..."
+    git push origin --delete master || print "Failed to delete remote 'master' (you may not have permissions or it may be the default branch on the remote). If so, change the default branch in the remote repository settings and run this script again to retry deletion."
   fi
 
   git remote set-head origin main || true

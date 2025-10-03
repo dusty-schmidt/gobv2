@@ -9,6 +9,7 @@ from pathlib import Path
 workspace_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(workspace_root))
 from core import CommunalBrain, BrainConfig
+from core.brain.conversation_manager import UniversalConversationManager
 
 from .embeddings_manager import EmbeddingsManager
 from .chat_handler import ChatHandler
@@ -155,6 +156,9 @@ class Chatbot:
         self.brain = CommunalBrain(brain_config)
         await self.brain.initialize()
 
+        # Initialize universal conversation manager
+        self.conversation_manager = UniversalConversationManager(self.brain)
+
         # Show brain stats
         stats = await self.brain.get_memory_stats()
         logger.info('Communal brain stats: %s', stats)
@@ -184,15 +188,20 @@ class Chatbot:
         )
         logger.info("   ✓ Model: %s", llm_config.model)
 
-        # Initialize chat handler with communal brain
+        # Initialize chat handler with communal brain and conversation manager
         self.chat_handler = ChatHandler(
-            llm_client=self.llm_client,
             brain=self.brain,
             embeddings_mgr=self.embeddings_mgr,
+            llm_client=self.llm_client,
+            conversation_manager=self.conversation_manager,
             memory_config=self.config.memory,
             knowledge_config=self.config.knowledge,
             llm_config=self.config.llm
         )
+
+        # Start a conversation session
+        session_id = self.chat_handler.start_conversation()
+        print(f"💬 Session ID: {session_id}")
 
         print("\n" + "="*60)
         print("✅ Chatbot ready!")
@@ -272,7 +281,8 @@ class Chatbot:
         memories_after = stats_after['memory_count']
 
         # Get conversation context info for stats
-        conversation_turns = len(self.chat_handler.context_manager.conversation_history)
+        conversation_summary = self.chat_handler.conversation_manager.get_conversation_summary(self.chat_handler.current_session_id)
+        conversation_turns = conversation_summary.get('total_turns', 0)
         conversation_context_used = conversation_turns > 1  # True if we have conversation history
 
         # Build statistics including token usage and conversation context
@@ -296,7 +306,7 @@ class Chatbot:
     async def run_interactive(self):
         """Run interactive chat loop with enhanced display"""
         print(Colors.header("💬 Interactive chat mode"))
-        print(Colors.dim("   Commands: 'exit', 'quit', 'bye' to end | 'stats' for brain info | 'clear' to reset conversation | 'debug' to toggle context inspection"))
+        print(Colors.dim("   Commands: 'exit', 'quit', 'bye' to end | 'stats' for brain info | 'clear' to reset conversation | 'sessions' to list all conversations"))
         print()
 
         conversation_count = 0
@@ -324,10 +334,17 @@ class Chatbot:
                     print("🧹 Conversation history cleared. Starting fresh!")
                     continue
 
-                if user_input.lower() == 'debug':
-                    debug_state = self.chat_handler.toggle_debug()
-                    status = "ENABLED" if debug_state else "DISABLED"
-                    print(f"🔍 Debug mode {status}. Full LLM prompts will be displayed.\n")
+                if user_input.lower() == 'sessions':
+                    conversations = self.chat_handler.list_all_conversations(limit=10)
+                    if conversations:
+                        print("\n📋 Recent Conversations:")
+                        for conv in conversations:
+                            status = "Active" if conv.get('status') == 'active' else "Completed"
+                            turns = conv.get('total_turns', 0)
+                            print(f"  {conv['session_id']} - {conv['chatbot_name']} ({turns} turns, {status})")
+                        print()
+                    else:
+                        print("📋 No conversations found.\n")
                     continue
 
                 # Echo user input with color for readability
@@ -447,6 +464,9 @@ async def main():
         traceback.print_exc()
     finally:
         if 'bot' in locals():
+            # End conversation session
+            if hasattr(bot, 'chat_handler') and bot.chat_handler.current_session_id:
+                bot.chat_handler.end_conversation()
             await bot.brain.close()  # Close communal brain
 
 if __name__ == "__main__":

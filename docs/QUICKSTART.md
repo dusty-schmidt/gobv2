@@ -40,9 +40,16 @@ Edit `config.toml` to customize models, prompts, and settings.
 - "My name is John"
 - (later) "What's my name?"
 
+### Test universal conversations:
+- Start with Nano: "Let's talk about Python programming"
+- Switch to Mini and continue: "Tell me more about classes"
+- Both chatbots share the same conversation history!
+
 ### Special commands:
 - Type `stats` to see database statistics
-- Type `clear` to clear the screen
+- Type `clear` to reset conversation (start new session)
+- Type `sessions` to list all conversation sessions (Mini only)
+- Type `history` to view current conversation history
 - Type `exit` to quit
 
 ---
@@ -99,8 +106,9 @@ LOG_LEVEL=DEBUG ./run.sh
 
 ## 💡 Tips
 
-- The database files `chatbot.db*` store all memories and knowledge
-- Backup these files to preserve your conversations
-- Delete them to start fresh (knowledge will reload from txt files)
+- The communal brain database `core/communal_brain.db` stores all memories, knowledge, and conversations
+- Conversations are now universal - start with one chatbot, continue with another using session IDs
+- Backup the communal brain database to preserve all your collective intelligence
 - Use `./run.sh` for easy execution from any directory
+- Both Nano and Mini share the same brain, so learning on one benefits both
 

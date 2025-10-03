@@ -39,21 +39,26 @@ gob/                        # Workspace root
 **"One Brain, Many Bodies"** - All chatbots share the same intelligence pool, learning from each other while specializing based on their hardware capabilities.
 
 ### Key Features
+- **Universal Conversation Management**: Conversations can be handed off between any chatbots using session IDs
 - **Shared Memory**: Conversation memories accessible across all devices
 - **Device Attribution**: Track which device contributed which knowledge
 - **Hardware Awareness**: Automatic capability detection and task routing
 - **Scalable Storage**: From local SQLite to distributed PostgreSQL
 - **Conflict Resolution**: Intelligent merging of concurrent updates
+- **Session Continuity**: Start conversation with one chatbot, continue with another
 
 ## Development Tiers
 
 ### Tier 1: Foundation (Current - 100% Complete) ✅
-**Status**: Communal brain fully operational with two working chatbots
+**Status**: Universal conversation management fully operational with two working chatbots
 - ✅ Communal brain architecture and API
 - ✅ Storage abstraction layer (SQLite + extensible)
 - ✅ Device management and auto-detection
 - ✅ Mini chatbot integration with communal brain
 - ✅ Nano chatbot integration with communal brain
+- ✅ **Universal Conversation Manager** - centralized conversation tracking
+- ✅ **Cross-device conversation continuity** - sessions work across chatbots
+- ✅ **Session-based conversations** - unique IDs for conversation handoff
 - ✅ Cross-device memory and knowledge sharing
 - ✅ Centralized database in gob/core/
 - ✅ Global configuration and logging systems
@@ -149,6 +154,8 @@ tomli>=2.0.0         # TOML configuration
 - Storage abstraction (SQLite + extensible backends)
 - Device management and auto-detection
 - Data models and vector search
+- **Universal Conversation Manager** - centralized conversation tracking
+- **Session-based conversation continuity** - handoff between chatbots
 - Mini chatbot integration with communal brain
 - Nano chatbot integration with communal brain
 - Cross-device memory sharing and statistics

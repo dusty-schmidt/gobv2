@@ -1,98 +1,94 @@
 # File Guide - Chatbot v2
 
 ## 🏗️ Project Structure
-# File Guide - Chatbot v2
+# File Guide - Homelab Intelligence Framework
 
 ## 🏗️ Project Structure
 
 ```
-chatbot_v2.2/
-├── src/                    # Core application code
-│   ├── core/              # Main chatbot components
-│   ├── memory/            # Memory management system
-│   ├── knowledge/         # Knowledge base & embeddings
-│   └── utils/             # Shared utilities
-├── tests/                 # Testing utilities
-├── docs/                  # Documentation
-├── knowledge_docs/        # Knowledge base documents
-├── prompts/               # System prompts
-├── main.py                # Entry point
-├── run.sh                 # Simple bash runner
-└── [config files...]
+gob/                        # Workspace root
+├── core/                  # 🧠 Shared intelligence framework
+│   ├── brain/            # Communal brain implementation
+│   │   ├── brain.py      # Main CommunalBrain API
+│   │   ├── storage.py    # Storage abstraction layer
+│   │   ├── models.py     # Data structures
+│   │   ├── vector_search.py # Similarity algorithms
+│   │   └── conversation_manager.py # Universal conversation tracking
+│   ├── communal_brain.db # Live communal database
+│   ├── config/           # Global configuration system
+│   ├── llm/              # LLM client abstraction
+│   └── logging.py        # Centralized logging
+├── mini/                 # 🤖 Enhanced chatbot with communal brain
+│   ├── src/core/         # Chatbot implementation
+│   ├── config.toml       # Configuration
+│   ├── prompts/          # System prompts
+│   ├── knowledge_docs/   # Knowledge base input
+│   └── docs/             # Documentation
+├── nano/                 # 🔬 Simple chatbot with communal brain
+│   └── main.py           # Simple chatbot implementation
+├── tests/                # 🧪 Test suite
+├── docs/                 # 📖 Centralized documentation
+└── run.py                # 🎯 CLI entry point for chatbots
 ```
 
-## 📋 Core Application (`src/`)
+## 📋 Core Framework (`core/`)
 
-### `src/core/` - Main Chatbot Components
+### `core/brain/` - Communal Brain Implementation
 
-#### `main.py` (7.3K)
-**Role:** Main entry point and orchestration
-- Initializes all components
-- Manages interactive chat loop
-- Handles database lifecycle
-- Shows statistics and status
-- **Imported by root main.py**
+#### `brain.py` (18K)
+**Role:** Main CommunalBrain API
+- Central intelligence hub for all devices
+- Memory and knowledge storage/retrieval
+- Device management and registration
+- Statistics and monitoring
+- **Core of the shared intelligence system**
 
-#### `config.py` (2.7K)
-**Role:** Configuration management
-- OpenAI embeddings settings
-- LLM model configuration
-- Database paths and settings
-- Memory and knowledge retrieval parameters
-- **Edit this to customize behavior**
+#### `storage.py` (25K)
+**Role:** Storage abstraction layer
+- Backend-agnostic storage interface
+- SQLite implementation with vector search
+- PostgreSQL/Redis backend support
+- Conversation persistence
+- **Handles all data persistence**
 
-#### `chat_handler.py` (2.6K)
-**Role:** Response generation orchestration
-- Retrieves relevant memories
-- Searches knowledge base
-- Builds context for LLM
-- Generates responses
-- Saves new conversations
-- **Ties everything together**
+#### `conversation_manager.py` (2.5K)
+**Role:** Universal conversation tracking
+- Session-based conversation management
+- Cross-device conversation continuity
+- Conversation history retrieval
+- **Enables conversation handoff between chatbots**
+
+#### `models.py` (3.2K)
+**Role:** Data structures and types
+- DeviceContext, MemoryItem, KnowledgeItem
+- Conversation data models
+- Type definitions and validation
+- **Foundation data structures**
+
+#### `vector_search.py` (1.8K)
+**Role:** Similarity algorithms
+- Cosine similarity implementation
+- Multiple distance metrics
+- Optimized ranking algorithms
+- **Powers semantic search**
+
+### `core/llm/` - LLM Abstraction
 
 #### `llm_client.py` (6.8K)
 **Role:** LLM API interface
-- Connects to OpenRouter
-- Formats prompts
-- Handles API calls
+- Connects to OpenRouter/OpenAI
+- Formats prompts and handles responses
 - Error handling and retries
-- **Unchanged from v1**
+- **Standardized LLM interface**
 
-### `src/memory/` - Memory Management System
+### `core/config/` - Global Configuration
 
-#### `database.py` (12K)
-**Role:** SQLite persistence layer
-- Creates and manages database schema
-- Vector search for memories and knowledge
-- CRUD operations for all data
-- Performance optimizations (WAL, indexes)
-- **Core of the persistence system**
-
-#### `memory_store.py` (5.8K)
-**Role:** Conversation memory management
-- Stores chat history in database
-- Retrieves relevant past conversations
-- Semantic search via embeddings
-- Memory cleanup utilities
-- **Your chatbot's memory system**
-
-### `src/knowledge/` - Knowledge Base System
-
-#### `embeddings_manager.py` (5.5K)
-**Role:** OpenAI embeddings interface
-- Converts text to vectors via OpenAI API
-- Batch processing for efficiency
-- Cosine similarity calculations
-- Retry logic with exponential backoff
-  - **Standardized on OpenAI embeddings**
-
-#### `knowledge_base.py` (5.7K)
-**Role:** Document knowledge management
-- Loads .txt files from knowledge_docs/
-- Chunks documents intelligently
-- Stores chunks in database
-- Semantic search for relevant info
-- **Your chatbot's knowledge system**
+#### `loader.py` (2.1K)
+**Role:** Configuration management
+- TOML configuration loading
+- Environment variable integration
+- Validation and defaults
+- **Centralized configuration system**
 
 ### `src/utils/` - Shared Utilities
 
@@ -190,48 +186,64 @@ chatbot_v2.2/
 
 ## 🗄️ Generated Files (Created at Runtime)
 
-### `chatbot.db`
-**Role:** SQLite database
-- Stores all memories
-- Stores all knowledge chunks
-- Stores embeddings as binary
-- **Created automatically on first run**
+### `core/communal_brain.db`
+**Role:** Communal SQLite database
+- Stores all memories, knowledge, and conversations
+- Device registrations and capabilities
+- Conversation sessions and history
+- Vector embeddings for semantic search
+- **Central intelligence repository for all chatbots**
 
-### `chatbot.db-wal` and `chatbot.db-shm`
+### `core/communal_brain.db-wal` and `core/communal_brain.db-shm`
 **Role:** SQLite Write-Ahead Log files
 - Temporary files for WAL mode
 - Better concurrency and crash resistance
 - **Created automatically by SQLite**
 
-### `chatbot.log`
-**Role:** Application log file
-- All logging output in reverse chronological order
-- Auto-deletes logs older than 7 days
-- Keeps most recent 1000 entries
-- Newest logs appear at top of file
-- **Check here for debugging info**
+### `core/data/last_context.txt`
+**Role:** Debug context snapshots
+- Shows LLM prompts being sent
+- Memory retrieval results
+- Conversation context building
+- **Updated after each interaction**
+
+### `core/data/conversations/`
+**Role:** Conversation session storage
+- JSON files for conversation persistence
+- Organized by session ID and timestamp
+- **Legacy storage, now superseded by database**
 
 ---
 
 ## 📊 Architecture Benefits
 
+**Universal Intelligence:**
+- One brain shared across all chatbots
+- Conversation continuity between different chatbots
+- Collective learning benefits all implementations
+- Session-based conversation handoff
+
 **Modular Design:**
 - Clear separation of concerns
 - Easy to extend and maintain
 - Stable import paths via `__init__.py`
+- Backend-agnostic storage abstraction
 
-**Testing:**
-- Comprehensive smoke tests
-- Isolated testing environment
-- No external API dependencies for basic tests
+**Scalability:**
+- From single device to distributed homelab
+- PostgreSQL backend ready for scale
+- Redis caching for performance
+- Device capability-aware task routing
 
 **Developer Experience:**
 - `./run.sh` for easy execution
 - Clear documentation structure
-- Minimal dependencies (3 packages)
+- Comprehensive test suite
+- Real-time brain sharing verified
 
 **Performance:**
 - SQLite with WAL mode for speed
 - Efficient vector operations
 - Optimized memory usage
+- Semantic search with relevance scoring
 

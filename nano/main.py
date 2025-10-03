@@ -24,238 +24,23 @@ except Exception as e:
     print(f"⚠️  Could not load .env file: {e}")
 
 from core import CommunalBrain, BrainConfig, LLMConfig, EmbeddingsConfig
+from core.brain.conversation_manager import UniversalConversationManager
 from core.llm import LLMClient
 from mini.src.core.embeddings_manager import EmbeddingsManager
 from mini.src.core.config import ChatbotConfig
 
-class ConversationStorage:
-    """Persistent storage for conversation logs across sessions"""
-
-    def __init__(self, data_dir: Path, device_name: str = "nano"):
-        self.data_dir = data_dir
-        self.conversations_dir = data_dir / "conversations"
-        self.contexts_dir = data_dir / "contexts"
-        self.device_name = device_name
-        self.current_session_id = None
-
-        # Ensure directories exist
-        self.conversations_dir.mkdir(parents=True, exist_ok=True)
-        self.contexts_dir.mkdir(parents=True, exist_ok=True)
-
-    def start_new_session(self):
-        """Start a new conversation session"""
-        import uuid
-        self.current_session_id = f"{self.device_name}_{uuid.uuid4().hex[:8]}"
-        return self.current_session_id
-
-    def save_conversation_log(self, conversation_history: list):
-        """Save complete conversation log to persistent storage"""
-        if not self.current_session_id:
-            self.start_new_session()
-
-        filename = f"{self.current_session_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        filepath = self.conversations_dir / filename
-
-        conversation_data = {
-            "session_id": self.current_session_id,
-            "device": self.device_name,
-            "timestamp": datetime.now().isoformat(),
-            "messages": conversation_history
-        }
-
-        import json
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(conversation_data, f, indent=2, ensure_ascii=False)
-
-        return filepath
-
-    def load_recent_conversations(self, limit: int = 5):
-        """Load recent conversation logs for context building"""
-        if not self.conversations_dir.exists():
-            return []
-
-        # Get all conversation files, sorted by modification time (newest first)
-        conversation_files = sorted(
-            self.conversations_dir.glob("*.json"),
-            key=lambda x: x.stat().st_mtime,
-            reverse=True
-        )
-
-        conversations = []
-        for filepath in conversation_files[:limit]:
-            try:
-                import json
-                with open(filepath, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    conversations.append(data)
-            except Exception as e:
-                print(f"Warning: Could not load conversation file {filepath}: {e}")
-
-        return conversations
-
-    def save_context_snapshot(self, context_content: str, metadata: dict = None):
-        """Save current context snapshot"""
-        if not self.current_session_id:
-            self.start_new_session()
-
-        filename = f"context_{self.current_session_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-        filepath = self.contexts_dir / filename
-
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write("=== CONTEXT SNAPSHOT ===\n")
-            f.write(f"Session: {self.current_session_id}\n")
-            f.write(f"Device: {self.device_name}\n")
-            f.write(f"Timestamp: {datetime.now().isoformat()}\n")
-            if metadata:
-                f.write(f"Metadata: {metadata}\n")
-            f.write("\n")
-            f.write(context_content)
-
-        return filepath
-
-
-class ContextManager:
-    """Dedicated context manager for Nano chatbot with debug capabilities and persistent storage"""
-
-    def __init__(self, max_history=20, data_dir: Path = None, device_name: str = "nano"):
-        self.conversation_history = []
-        self.max_history = max_history
-        self.debug_mode = False
-
-        # Initialize persistent storage
-        if data_dir is None:
-            workspace_root = Path(__file__).parent.parent
-            data_dir = workspace_root / "core" / "data"
-
-        self.storage = ConversationStorage(data_dir, device_name)
-        self.storage.start_new_session()
-
-        # Load recent conversation context from persistent storage
-        self._load_persistent_context()
-
-    def _load_persistent_context(self):
-        """Load recent conversation context from persistent storage"""
-        try:
-            recent_conversations = self.storage.load_recent_conversations(limit=3)
-
-            # Extract messages from recent conversations and add to current history
-            loaded_messages = []
-            for conv in recent_conversations:
-                if 'messages' in conv:
-                    # Add messages but mark them as from previous sessions
-                    for msg in conv['messages'][-5:]:  # Limit messages per conversation
-                        loaded_messages.append({
-                            "role": msg["role"],
-                            "content": f"[Previous Session] {msg['content']}",
-                            "from_session": conv.get('session_id', 'unknown')
-                        })
-
-            # Add loaded messages to current history (but don't exceed max_history)
-            for msg in loaded_messages[-10:]:  # Limit total loaded messages
-                if len(self.conversation_history) < self.max_history:
-                    self.conversation_history.append(msg)
-
-        except Exception as e:
-            print(f"Warning: Could not load persistent context: {e}")
-            # Continue without persistent context
-
-    def add_message(self, role: str, content: str):
-        """Add a message to conversation history"""
-        message = {"role": role, "content": content, "timestamp": datetime.now().isoformat()}
-        self.conversation_history.append(message)
-
-        # Keep only recent messages
-        if len(self.conversation_history) > self.max_history:
-            self.conversation_history = self.conversation_history[-self.max_history:]
-
-        # Save conversation log periodically (every 3 messages)
-        if len(self.conversation_history) % 3 == 0:
-            try:
-                self.storage.save_conversation_log(self.conversation_history)
-            except Exception as e:
-                print(f"Warning: Could not save conversation log: {e}")
-
-    def get_recent_context(self, max_messages=8):
-        """Get recent conversation context for LLM"""
-        return self.conversation_history[-max_messages:] if len(self.conversation_history) > max_messages else self.conversation_history
-
-    def get_full_history(self):
-        """Get complete conversation history"""
-        return self.conversation_history.copy()
-
-    def clear(self):
-        """Clear conversation history"""
-        self.conversation_history = []
-
-    def build_llm_context(self, user_message: str, memories: list, system_prompt: str):
-        """Build complete context for LLM including system prompt, conversation, and memories"""
-
-        context_parts = []
-
-        # Add system prompt
-        context_parts.append(f"=== SYSTEM PROMPT ===\n{system_prompt}\n")
-
-        # Add recent conversation context (including persistent history)
-        recent_context = self.get_recent_context(max_messages=8)  # Get more context
-        if recent_context:
-            context_parts.append("=== RECENT CONVERSATION HISTORY ===")
-            for msg in recent_context[:-1]:  # Exclude current user message
-                role_display = "USER" if msg["role"] == "user" else "ASSISTANT"
-                content = msg['content']
-
-                # Handle persistent context markers
-                if content.startswith("[Previous Session]"):
-                    content = content.replace("[Previous Session] ", "")
-                    role_display = f"{role_display} (previous session)"
-
-                context_parts.append(f"**{role_display}**: {content}")
-            context_parts.append("")  # Add spacing
-
-        # Add relevant long-term memories
-        if memories:
-            context_parts.append("=== RELEVANT LONG-TERM MEMORIES ===")
-            for i, mem in enumerate(memories[:3], 1):  # Limit to 3 for conciseness
-                context_parts.append(
-                    f"**Memory {i}** (relevance: {mem.relevance_score:.2f}):"
-                    f"\n  User asked: {mem.user_message}"
-                    f"\n  Assistant replied: {mem.bot_response}"
-                )
-            context_parts.append("")  # Add spacing
-
-        # Add current user message
-        context_parts.append(f"=== CURRENT USER MESSAGE ===\n{user_message}")
-
-        # Combine all context
-        full_context = "\n".join(context_parts)
-
-        if self.debug_mode:
-            print("\n" + "="*80)
-            print("🔍 DEBUG: FULL CONTEXT BEING SENT TO LLM")
-            print("="*80)
-            print(full_context)
-            print("="*80 + "\n")
-
-        return full_context
-
-    def toggle_debug(self):
-        """Toggle debug mode for context inspection"""
-        self.debug_mode = not self.debug_mode
-        return self.debug_mode
-
-
-# Backward compatibility alias
-ConversationContext = ContextManager
 
 
 class NanoChatbot:
-    """Ultra-simple chatbot using communal brain with conversation context"""
+    """Ultra-simple chatbot using communal brain with universal conversation management"""
 
     def __init__(self):
         self.brain = None
         self.llm_client = None
         self.embeddings_mgr = None
+        self.conversation_manager = None
         self.device_name = "Nano Chatbot"
-        self.conversation = ConversationContext(max_history=20)  # Keep more history for context
+        self.current_session_id = None
 
     async def initialize(self):
         """Initialize communal brain and LLM client"""
@@ -279,6 +64,9 @@ class NanoChatbot:
             embedding_dim=mini_config.embeddings.embedding_dim
         )
 
+        # Initialize universal conversation manager
+        self.conversation_manager = UniversalConversationManager(self.brain)
+
         # Initialize LLM client (using global config)
         llm_config = LLMConfig()
         self.llm_client = LLMClient(
@@ -287,6 +75,9 @@ class NanoChatbot:
             base_url=llm_config.base_url
         )
 
+        # Start a new conversation session
+        self.current_session_id = self.conversation_manager.start_conversation(self.device_name)
+
         # Show current brain stats
         stats = await self.brain.get_memory_stats()
         print(f"🧠 Connected to communal brain:")
@@ -294,17 +85,15 @@ class NanoChatbot:
         print(f"   📚 Knowledge: {stats['knowledge_count']}")
         print(f"   🤖 Devices: {stats['device_count']}")
         print(f"🤖 LLM Model: {llm_config.model}")
+        print(f"💬 Session ID: {self.current_session_id}")
         print("\n💬 Nano AI ready!")
-        print("Commands: 'exit' to quit | 'stats' for brain info | 'clear' to reset conversation | 'history' to view chat log | 'debug' to toggle LLM prompt inspection\n")
+        print("Commands: 'exit' to quit | 'stats' for brain info | 'clear' to reset conversation | 'history' to view chat log | 'sessions' to list all conversations\n")
 
     async def chat(self, user_message: str):
-        """AI chat with communal memory context and conversation history"""
+        """AI chat with communal memory context and universal conversation management"""
         # Get memory count before
         stats_before = await self.brain.get_memory_stats()
         memories_before = stats_before['memory_count']
-
-        # Add user message to conversation history
-        self.conversation.add_message("user", user_message)
 
         # Generate embedding for the user message
         import asyncio
@@ -315,6 +104,11 @@ class NanoChatbot:
         # Retrieve relevant memories from communal brain (long-term context)
         memories = await self.brain.retrieve_memories(query_embedding, top_k=3)
 
+        # Get recent conversation history from universal manager
+        conversation_history = self.conversation_manager.get_conversation_history(
+            self.current_session_id, max_turns=8
+        )
+
         # Create system prompt
         system_prompt = (
             "You are Nano, a helpful AI assistant with access to conversation history and past experiences. "
@@ -323,8 +117,35 @@ class NanoChatbot:
             "Reference previous parts of our conversation when appropriate."
         )
 
-        # Build complete LLM context using ContextManager
-        full_context = self.conversation.build_llm_context(user_message, memories, system_prompt)
+        # Build LLM context manually (since we don't have the old ContextManager)
+        context_parts = [f"=== SYSTEM PROMPT ===\n{system_prompt}\n"]
+
+        # Add recent conversation context
+        if conversation_history:
+            context_parts.append("=== RECENT CONVERSATION HISTORY ===")
+            for turn in conversation_history[:-1]:  # Exclude current user message if it's already in history
+                role_display = "USER" if turn.user_message else "ASSISTANT"
+                if turn.user_message:
+                    context_parts.append(f"**USER**: {turn.user_message}")
+                if turn.bot_response:
+                    context_parts.append(f"**ASSISTANT**: {turn.bot_response}")
+            context_parts.append("")
+
+        # Add relevant long-term memories
+        if memories:
+            context_parts.append("=== RELEVANT LONG-TERM MEMORIES ===")
+            for i, mem in enumerate(memories[:3], 1):
+                context_parts.append(
+                    f"**Memory {i}** (relevance: {mem.relevance_score:.2f}):"
+                    f"\n  User asked: {mem.user_message}"
+                    f"\n  Assistant replied: {mem.bot_response}"
+                )
+            context_parts.append("")
+
+        # Add current user message
+        context_parts.append(f"=== CURRENT USER MESSAGE ===\n{user_message}")
+
+        full_context = "\n".join(context_parts)
 
         # For LLM API, we need to send as separate messages
         messages = [
@@ -345,8 +166,14 @@ class NanoChatbot:
             response = f"I understand you said: '{user_message}'. (LLM temporarily unavailable)"
             token_info = {'input_tokens': 0, 'output_tokens': 0, 'total_tokens': 0}
 
-        # Add AI response to conversation history
-        self.conversation.add_message("assistant", response)
+        # Add the conversation turn to universal manager
+        self.conversation_manager.add_turn(
+            self.current_session_id,
+            user_message,
+            response,
+            tokens_used=token_info.get('total_tokens', 0),
+            metadata={"model": self.llm_client.model}
+        )
 
         # Store the conversation in communal brain (use user message embedding for consistency)
         await self.brain.store_memory(user_message, response, query_embedding)
@@ -356,19 +183,18 @@ class NanoChatbot:
         memories_after = stats_after['memory_count']
 
         # Get conversation context info for stats
-        conversation_turns = len(self.conversation.conversation_history)
+        conversation_summary = self.conversation_manager.get_conversation_summary(self.current_session_id)
+        conversation_turns = conversation_summary.get('total_turns', 0)
         conversation_context_used = conversation_turns > 1  # True if we have conversation history
 
-        # Save context snapshot for verification
+        # Save context snapshot for verification (legacy support)
         metadata = {
             "conversation_turns": conversation_turns,
             "memories_retrieved": len(memories),
-            "debug_mode": self.conversation.debug_mode,
-            "session_id": self.conversation.storage.current_session_id
+            "session_id": self.current_session_id
         }
-        context_file = self.conversation.storage.save_context_snapshot(full_context, metadata)
 
-        # Also save to the old location for backward compatibility
+        # Save to legacy location for backward compatibility
         legacy_context_file = workspace_root / "core" / "last_context.txt"
         with open(legacy_context_file, 'w', encoding='utf-8') as f:
             f.write("=== LAST LLM CONTEXT ===\n")
@@ -377,9 +203,7 @@ class NanoChatbot:
             f.write("\n\n=== DEBUG INFO ===\n")
             f.write(f"Conversation turns: {conversation_turns}\n")
             f.write(f"Memories retrieved: {len(memories)}\n")
-            f.write(f"Debug mode: {self.conversation.debug_mode}\n")
-            f.write(f"Session ID: {self.conversation.storage.current_session_id}\n")
-            f.write(f"Context file: {context_file}\n")
+            f.write(f"Session ID: {self.current_session_id}\n")
 
         # Build statistics
         stats = {
@@ -474,26 +298,37 @@ class NanoChatbot:
                     continue
 
                 if user_input.lower() == 'clear':
-                    self.conversation.clear()
-                    print("🧹 Conversation history cleared. Starting fresh!")
+                    # End current conversation and start a new one
+                    if self.current_session_id:
+                        self.conversation_manager.end_conversation(self.current_session_id)
+                    self.current_session_id = self.conversation_manager.start_conversation(self.device_name)
+                    print(f"🧹 Conversation history cleared. New session: {self.current_session_id}")
                     continue
 
                 if user_input.lower() == 'history':
-                    history = self.conversation.get_full_history()
+                    history = self.conversation_manager.get_conversation_history(self.current_session_id)
                     if history:
-                        print("\n📜 Conversation History:")
-                        for i, msg in enumerate(history, 1):
-                            role = "You" if msg["role"] == "user" else "Nano"
-                            print(f"{i}. {role}: {msg['content'][:100]}{'...' if len(msg['content']) > 100 else ''}")
+                        print(f"\n📜 Conversation History (Session: {self.current_session_id}):")
+                        for i, turn in enumerate(history, 1):
+                            print(f"{i}. You: {turn.user_message}")
+                            if turn.bot_response:
+                                print(f"   Nano: {turn.bot_response}")
                         print()
                     else:
                         print("📜 No conversation history yet.\n")
                     continue
 
-                if user_input.lower() == 'debug':
-                    debug_state = self.conversation.toggle_debug()
-                    status = "ENABLED" if debug_state else "DISABLED"
-                    print(f"🔍 Debug mode {status}. Full LLM prompts will be displayed.\n")
+                if user_input.lower() == 'sessions':
+                    conversations = self.conversation_manager.list_all_conversations(limit=10)
+                    if conversations:
+                        print("\n📋 Recent Conversations:")
+                        for conv in conversations:
+                            status = "Active" if conv.get('status') == 'active' else "Completed"
+                            turns = conv.get('total_turns', 0)
+                            print(f"  {conv['session_id']} - {conv['chatbot_name']} ({turns} turns, {status})")
+                        print()
+                    else:
+                        print("📋 No conversations found.\n")
                     continue
 
                 # Generate response
@@ -513,6 +348,8 @@ class NanoChatbot:
                 print(f"❌ Error: {e}")
 
         # Cleanup
+        if self.current_session_id:
+            self.conversation_manager.end_conversation(self.current_session_id)
         if self.brain:
             await self.brain.close()
 

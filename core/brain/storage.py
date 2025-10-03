@@ -248,6 +248,22 @@ class SQLiteBackend(StorageBackend):
                 )
             """)
 
+            # Conversations table
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS conversations (
+                    session_id TEXT PRIMARY KEY,
+                    chatbot_name TEXT NOT NULL,
+                    device_id TEXT NOT NULL,
+                    start_time TEXT NOT NULL,
+                    end_time TEXT,
+                    status TEXT NOT NULL,
+                    metadata TEXT,  -- JSON object
+                    turns TEXT,  -- JSON array of conversation turns
+                    created_at REAL,
+                    updated_at REAL
+                )
+            """)
+
             # Create indexes for performance
             await db.execute("CREATE INDEX IF NOT EXISTS idx_memories_device ON memories(device_id)")
             await db.execute("CREATE INDEX IF NOT EXISTS idx_memories_timestamp ON memories(timestamp)")
@@ -256,6 +272,8 @@ class SQLiteBackend(StorageBackend):
             await db.execute("CREATE INDEX IF NOT EXISTS idx_devices_status ON devices(status)")
             await db.execute("CREATE INDEX IF NOT EXISTS idx_sync_device ON sync_operations(device_id)")
             await db.execute("CREATE INDEX IF NOT EXISTS idx_sync_resolved ON sync_operations(resolved)")
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_conversations_status ON conversations(status)")
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_conversations_device ON conversations(device_id)")
 
             await db.commit()
 
@@ -671,6 +689,93 @@ class SQLiteBackend(StorageBackend):
             """, (operation_id,))
             await db.commit()
 
+    async def store_conversation(self, session_id: str, conversation_data: Dict[str, Any]) -> None:
+        """Store conversation data"""
+        import aiosqlite
+        import json
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("""
+                INSERT OR REPLACE INTO conversations
+                (session_id, chatbot_name, device_id, start_time, end_time, status, metadata, turns, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                session_id,
+                conversation_data.get('chatbot_name', 'unknown'),
+                conversation_data.get('device_id', 'unknown'),
+                conversation_data.get('start_time', ''),
+                conversation_data.get('end_time'),
+                conversation_data.get('status', 'unknown'),
+                json.dumps(conversation_data.get('metadata', {})),
+                json.dumps(conversation_data.get('turns', [])),
+                conversation_data.get('timestamp', '').replace('T', ' ').replace('Z', '') if conversation_data.get('timestamp') else None,
+                conversation_data.get('timestamp', '').replace('T', ' ').replace('Z', '') if conversation_data.get('timestamp') else None
+            ))
+            await db.commit()
+
+    async def load_conversation(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Load conversation data"""
+        import aiosqlite
+        import json
+
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute("""
+                SELECT session_id, chatbot_name, device_id, start_time, end_time, status, metadata, turns
+                FROM conversations WHERE session_id = ?
+            """, (session_id,))
+
+            row = await cursor.fetchone()
+            if not row:
+                return None
+
+            return {
+                'session_id': row[0],
+                'chatbot_name': row[1],
+                'device_id': row[2],
+                'start_time': row[3],
+                'end_time': row[4],
+                'status': row[5],
+                'metadata': json.loads(row[6]) if row[6] else {},
+                'turns': json.loads(row[7]) if row[7] else []
+            }
+
+    async def list_conversations(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """List conversations"""
+        import aiosqlite
+        import json
+
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute("""
+                SELECT session_id, chatbot_name, device_id, start_time, end_time, status, metadata, turns
+                FROM conversations ORDER BY created_at DESC LIMIT ?
+            """, (limit,))
+
+            rows = await cursor.fetchall()
+            conversations = []
+
+            for row in rows:
+                conversations.append({
+                    'session_id': row[0],
+                    'chatbot_name': row[1],
+                    'device_id': row[2],
+                    'start_time': row[3],
+                    'end_time': row[4],
+                    'status': row[5],
+                    'metadata': json.loads(row[6]) if row[6] else {},
+                    'turns': json.loads(row[7]) if row[7] else []
+                })
+
+            return conversations
+
+    async def delete_conversation(self, session_id: str) -> bool:
+        """Delete a conversation"""
+        import aiosqlite
+
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute("DELETE FROM conversations WHERE session_id = ?", (session_id,))
+            await db.commit()
+            return cursor.rowcount > 0
+
     def _embedding_to_bytes(self, embedding: List[float]) -> bytes:
         """Convert embedding list to bytes for storage"""
         import struct
@@ -824,3 +929,19 @@ class StorageAbstraction:
     async def mark_sync_operation_resolved(self, operation_id: str) -> None:
         primary = await self._get_primary_backend()
         await primary.mark_sync_operation_resolved(operation_id)
+
+    async def store_conversation(self, session_id: str, conversation_data: Dict[str, Any]) -> None:
+        primary = await self._get_primary_backend()
+        await primary.store_conversation(session_id, conversation_data)
+
+    async def load_conversation(self, session_id: str) -> Optional[Dict[str, Any]]:
+        primary = await self._get_primary_backend()
+        return await primary.load_conversation(session_id)
+
+    async def list_conversations(self, limit: int = 50) -> List[Dict[str, Any]]:
+        primary = await self._get_primary_backend()
+        return await primary.list_conversations(limit)
+
+    async def delete_conversation(self, session_id: str) -> bool:
+        primary = await self._get_primary_backend()
+        return await primary.delete_conversation(session_id)

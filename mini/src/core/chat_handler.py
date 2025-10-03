@@ -6,44 +6,17 @@ from typing import Dict, List
 from .llm_client import LLMClient
 from ..utils import get_logger
 from datetime import datetime
+from core.brain.conversation_manager import UniversalConversationManager
 logger = get_logger(__name__)
 
 
-class ContextManager:
-    """Manages conversation context for Mini chatbot"""
-
-    def __init__(self, max_history=20):
-        self.conversation_history = []
-        self.max_history = max_history
-        self.debug_mode = False
-
-    def add_message(self, role: str, content: str):
-        """Add a message to conversation history"""
-        message = {"role": role, "content": content, "timestamp": datetime.now().isoformat()}
-        self.conversation_history.append(message)
-
-        # Keep only recent messages
-        if len(self.conversation_history) > self.max_history:
-            self.conversation_history = self.conversation_history[-self.max_history:]
-
-    def get_recent_context(self, max_messages=8):
-        """Get recent conversation context for LLM"""
-        return self.conversation_history[-max_messages:] if len(self.conversation_history) > max_messages else self.conversation_history
-
-    def clear(self):
-        """Clear conversation history"""
-        self.conversation_history = []
-
-    def toggle_debug(self):
-        """Toggle debug mode"""
-        self.debug_mode = not self.debug_mode
-        return self.debug_mode
 
 
 class ChatHandler:
     """Handles chat interactions with communal brain integration and conversation context"""
 
     def __init__(self, brain, embeddings_mgr, llm_client: LLMClient,
+                 conversation_manager: UniversalConversationManager,
                  memory_config=None, knowledge_config=None, llm_config=None):
         """
         Initialize chat handler
@@ -52,6 +25,7 @@ class ChatHandler:
             brain: CommunalBrain instance
             embeddings_mgr: EmbeddingsManager for generating embeddings
             llm_client: LLMClient instance for LLM API calls
+            conversation_manager: UniversalConversationManager for session handling
             memory_config: Memory configuration (optional)
             knowledge_config: Knowledge configuration (optional)
             llm_config: LLM configuration for temperature/max_tokens (optional)
@@ -59,6 +33,7 @@ class ChatHandler:
         self.brain = brain
         self.embeddings_mgr = embeddings_mgr
         self.llm_client = llm_client
+        self.conversation_manager = conversation_manager
 
         # Store configs
         self.memory_config = memory_config
@@ -69,8 +44,19 @@ class ChatHandler:
         self.temperature = llm_config.temperature if llm_config else 0.7
         self.max_tokens = llm_config.max_tokens if llm_config else 1000
 
-        # Initialize context manager for conversation history
-        self.context_manager = ContextManager(max_history=20)
+        # Session management
+        self.current_session_id = None
+
+    def start_conversation(self, session_id: str = None) -> str:
+        """Start a new conversation session"""
+        self.current_session_id = self.conversation_manager.start_conversation("mini", session_id)
+        return self.current_session_id
+
+    def end_conversation(self):
+        """End the current conversation session"""
+        if self.current_session_id:
+            self.conversation_manager.end_conversation(self.current_session_id)
+            self.current_session_id = None
 
     async def generate_response(self, user_message: str, query_embedding: List[float] = None) -> tuple:
         """
@@ -83,8 +69,9 @@ class ChatHandler:
         Returns:
             Tuple of (response, token_info)
         """
-        # Add user message to conversation context
-        self.context_manager.add_message("user", user_message)
+        # Ensure we have a session
+        if not self.current_session_id:
+            self.start_conversation()
 
         # Generate embedding if not provided
         if query_embedding is None:
@@ -114,8 +101,14 @@ class ChatHandler:
             knowledge_results
         )
 
-        # Add AI response to conversation context
-        self.context_manager.add_message("assistant", response)
+        # Add conversation turn to universal manager
+        self.conversation_manager.add_turn(
+            self.current_session_id,
+            user_message,
+            response,
+            tokens_used=token_info.get('total_tokens', 0),
+            metadata={"model": self.llm_client.model}
+        )
 
         # Store this interaction in communal brain
         try:
@@ -196,14 +189,17 @@ class ChatHandler:
         """Build comprehensive context including conversation history, memories, and knowledge"""
         context_parts = []
 
-        # Add recent conversation context
-        recent_context = self.context_manager.get_recent_context(max_messages=8)
-        if recent_context:
-            context_parts.append("=== RECENT CONVERSATION HISTORY ===")
-            for msg in recent_context[:-1]:  # Exclude current user message
-                role_display = "USER" if msg["role"] == "user" else "ASSISTANT"
-                context_parts.append(f"**{role_display}**: {msg['content']}")
-            context_parts.append("")
+        # Add recent conversation context from universal manager
+        if self.current_session_id:
+            conversation_history = self.conversation_manager.get_conversation_history(self.current_session_id, max_turns=8)
+            if conversation_history:
+                context_parts.append("=== RECENT CONVERSATION HISTORY ===")
+                for turn in conversation_history:  # Show all turns except current user message
+                    if turn.user_message:
+                        context_parts.append(f"**USER**: {turn.user_message}")
+                    if turn.bot_response:
+                        context_parts.append(f"**ASSISTANT**: {turn.bot_response}")
+                context_parts.append("")
 
         # Add relevant long-term memories
         if memories:
@@ -253,19 +249,26 @@ class ChatHandler:
             # From mini/src/core/chat_handler.py, go up to gob/, then to core/data/
             context_file = Path(__file__).parent.parent.parent.parent / "core" / "data" / "last_context.txt"
 
+            # Get conversation summary for stats
+            conversation_turns = 0
+            if self.current_session_id:
+                summary = self.conversation_manager.get_conversation_summary(self.current_session_id)
+                conversation_turns = summary.get('total_turns', 0)
+
             logger.info(f"Saving Mini context snapshot to: {context_file}")
             logger.info(f"Context length: {len(full_context)} characters")
-            logger.info(f"Conversation turns: {len(self.context_manager.conversation_history)}")
+            logger.info(f"Conversation turns: {conversation_turns}")
 
             with open(context_file, 'w', encoding='utf-8') as f:
                 f.write("=== MINI CHATBOT CONTEXT ===\n")
-                f.write(f"Timestamp: {datetime.now().isoformat()}\n\n")
+                f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+                f.write(f"Session ID: {self.current_session_id}\n\n")
                 f.write(full_context)
                 f.write("\n\n=== DEBUG INFO ===\n")
-                f.write(f"Conversation turns: {len(self.context_manager.conversation_history)}\n")
+                f.write(f"Conversation turns: {conversation_turns}\n")
                 f.write(f"Memories retrieved: {len(memories)}\n")
                 f.write(f"Knowledge retrieved: {len(knowledge)}\n")
-                f.write(f"Debug mode: {self.context_manager.debug_mode}\n")
+                f.write(f"Session ID: {self.current_session_id}\n")
                 f.write(f"Current user message: {user_message[:100]}{'...' if len(user_message) > 100 else ''}\n")
 
             logger.info("Mini context snapshot saved successfully")
@@ -276,10 +279,18 @@ class ChatHandler:
             logger.error(traceback.format_exc())
 
     def clear_conversation(self):
-        """Clear conversation history"""
-        self.context_manager.clear()
+        """Clear conversation history by ending current session and starting new one"""
+        if self.current_session_id:
+            self.conversation_manager.end_conversation(self.current_session_id)
+        self.start_conversation()
 
-    def toggle_debug(self):
-        """Toggle debug mode for context inspection"""
-        return self.context_manager.toggle_debug()
+    def get_conversation_history(self, max_turns=10):
+        """Get conversation history for current session"""
+        if self.current_session_id:
+            return self.conversation_manager.get_conversation_history(self.current_session_id, max_turns)
+        return []
+
+    def list_all_conversations(self, limit=10):
+        """List all conversations across all chatbots"""
+        return self.conversation_manager.list_all_conversations(limit)
 

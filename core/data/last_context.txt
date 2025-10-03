@@ -1,31 +1,28 @@
 === MINI CHATBOT CONTEXT ===
-Timestamp: 2025-10-03T11:31:59.880878
-
-=== RECENT CONVERSATION HISTORY ===
+Timestamp: 2025-10-03T14:22:11.163050
+Session ID: mini_f3b8d91b
 
 === RELEVANT LONG-TERM MEMORIES ===
-**Memory 1** (relevance: 1.00):
-  User asked: Test Mini context
-  Assistant replied: Got it—your “mini‑context” test is logged and active. 🚀  
+**Memory 1** (relevance: 0.72):
+  User asked: what is your name
+  Assistant replied: I’m Mini — your friendly AI assistant, here to help!
+**Memory 2** (relevance: 0.70):
+  User asked: Hello Nano! My name is TestUser and I like coding.
+  Assistant replied: Hey TestUser! 👋 Great to meet another coding enthusiast. What languages or projects are you currently working on?
+**Memory 3** (relevance: 0.70):
+  User asked: Hi Nano! My name is Alex and I love programming.
+  Assistant replied: Hey Alex! 👋 Great to meet a fellow programming enthusiast. What languages or projects are you currently diving into?
 
-What would you like to dive into today? A quick config tweak, an open‑source tool you’re eyeing, or a privacy‑first workflow? Let me know and we’ll jump right in!
-**Memory 2** (relevance: 1.00):
-  User asked: Test Mini context
-  Assistant replied: Got it—your “mini‑context” test is logged and active. 🚀  
-
-Anything specific you’d like to dive into today? Maybe a quick configuration tweak, a piece of open‑source tooling, or just a chat about privacy‑first workflows? Let me know!
-**Memory 3** (relevance: 0.87):
-  User asked: Test context
-  Assistant replied: Got it—your “test context” is logged and active. 🚀  
-
-Anything specific you’d like to dive into today? Whether it’s a configuration tweak, a new open‑source tool you’re eyeing, or a privacy‑focused workflow, just let me know and we’ll jump right in!
+=== RELEVANT KNOWLEDGE ===
+**Knowledge 1** (relevance: 0.56, source: knowledge_docs/python.txt):
+  Python Programming Language Python is a high-level, interpreted programming language created by Guido van Rossum and first released in 1991. It emphasizes code readability with its use of significant whitespace and clear, expressive syntax. Key Features: - Easy to learn and read - Extensive standard library - Dynamic typing - Object-oriented, functional, and procedural programming support - Large ecosystem of third-party packages (PyPI) - Cross-platform compatibility Common Uses: - Web developme...
 
 === CURRENT USER MESSAGE ===
-Test Mini context
+hello
 
 === DEBUG INFO ===
-Conversation turns: 1
+Conversation turns: 0
 Memories retrieved: 3
-Knowledge retrieved: 0
-Debug mode: False
-Current user message: Test Mini context
+Knowledge retrieved: 1
+Session ID: mini_f3b8d91b
+Current user message: hello

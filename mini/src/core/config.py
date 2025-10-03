@@ -167,5 +167,16 @@ class ChatbotConfig:
         if self.knowledge is None:
             self.knowledge = KnowledgeConfig()
 
+    def get_system_prompt(self) -> str:
+        """Get the system prompt from centralized prompt system"""
+        try:
+            from core.prompts import get_prompt_manager
+            prompt_manager = get_prompt_manager()
+            return prompt_manager.get_prompt("mini.system.system") or ""
+        except Exception:
+            # Fallback to old config method if centralized system fails
+            prompts_config = _toml_config.get("prompts", {})
+            return prompts_config.get("system_prompt", "").strip()
+
 # Default configuration instance
 default_config = ChatbotConfig()

@@ -6,7 +6,8 @@ CLI entry point to select and run different chatbots/agents
 Usage:
     python3 run.py                # Interactive mode
     python3 run.py --mini         # Run Mini chatbot
-    python3 run.py --nano         # Run Nano chatbot
+    python3 run.py --main         # Run Main agent
+    python3 run.py --max          # Run Max agent
 """
 
 import sys
@@ -17,7 +18,8 @@ from pathlib import Path
 def main():
     parser = argparse.ArgumentParser(description="GOB - Communal Intelligence System")
     parser.add_argument('--mini', action='store_true', help='Run Mini chatbot')
-    parser.add_argument('--nano', action='store_true', help='Run Nano chatbot')
+    parser.add_argument('--main', action='store_true', help='Run Main agent')
+    parser.add_argument('--max', action='store_true', help='Run Max agent')
 
     args = parser.parse_args()
 
@@ -29,11 +31,17 @@ def main():
             "path": "mini",
             "command": "main.py"
         },
-        "nano": {
-            "name": "Nano v1.0",
-            "description": "Simple chatbot for testing",
-            "path": "nano",
-            "command": "main.py"
+        "main": {
+            "name": "Main v1.0",
+            "description": "Agent with basic tools and capabilities",
+            "path": "main",
+            "command": "agent.py"
+        },
+        "max": {
+            "name": "Max v1.0",
+            "description": "Advanced self-improving agent framework",
+            "path": "max",
+            "command": "agent.py"
         }
     }
 
@@ -41,9 +49,12 @@ def main():
     if args.mini:
         selected = options["mini"]
         chatbot_key = "mini"
-    elif args.nano:
-        selected = options["nano"]
-        chatbot_key = "nano"
+    elif args.main:
+        selected = options["main"]
+        chatbot_key = "main"
+    elif args.max:
+        selected = options["max"]
+        chatbot_key = "max"
     else:
         # Interactive mode
         print("🤖 GOB - Communal Intelligence System")
@@ -58,7 +69,7 @@ def main():
 
         while True:
             try:
-                choice = input("Select chatbot to run (mini/nano or 0 to exit): ").strip().lower()
+                choice = input("Select chatbot to run (mini/main/max or 0 to exit): ").strip().lower()
 
                 if choice in ["0", "exit", "quit"]:
                     print("👋 Goodbye!")
@@ -69,7 +80,7 @@ def main():
                     chatbot_key = choice
                     break
                 else:
-                    print("❌ Invalid choice. Please select 'mini', 'nano', or '0' to exit.")
+                    print("❌ Invalid choice. Please select 'mini', 'main', 'max', or '0' to exit.")
 
             except KeyboardInterrupt:
                 print("\n👋 Goodbye!")

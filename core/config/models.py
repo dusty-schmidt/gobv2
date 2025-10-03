@@ -117,7 +117,7 @@ class EmbeddingsConfig:
 class StorageConfig:
     """Storage configuration for the communal brain"""
     primary_backend: str = "local"
-    local_db_path: str = "communal_brain.db"
+    local_db_path: str = "data/communal_brain.db"
     remote_host: Optional[str] = None
     remote_port: int = 5432
     remote_database: Optional[str] = None

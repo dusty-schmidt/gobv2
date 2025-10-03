@@ -1,0 +1,32 @@
+{
+  "session_id": "DataSavingTest_2d42ff0f",
+  "chatbot_name": "DataSavingTest",
+  "device_id": "DataSavingTest",
+  "start_time": "2025-10-03T13:26:10.834293",
+  "status": "active",
+  "metadata": {
+    "test": true
+  },
+  "turns": [
+    {
+      "role": "user",
+      "content": "Hello",
+      "timestamp": "2025-10-03T13:26:10.834313"
+    },
+    {
+      "role": "assistant",
+      "content": "Hi there!",
+      "timestamp": "2025-10-03T13:26:10.834317"
+    },
+    {
+      "role": "user",
+      "content": "How are you?",
+      "timestamp": "2025-10-03T13:26:10.834321"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm doing well, thank you!",
+      "timestamp": "2025-10-03T13:26:10.834325"
+    }
+  ]
+}

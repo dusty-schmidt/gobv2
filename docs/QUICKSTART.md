@@ -57,11 +57,11 @@ Edit `config.toml` to customize models, prompts, and settings.
 ## 📊 Add Your Own Knowledge
 
 ```bash
-# Add .txt files to knowledge_docs/
-echo "Your knowledge here..." > knowledge_docs/my_topic.txt
+# Add .txt files to mini/knowledge_docs/
+echo "Your knowledge here..." > mini/knowledge_docs/my_topic.txt
 
 # Delete database to reload knowledge
-rm chatbot.db*
+rm core/data/communal_brain.db*
 
 # Run chatbot (will reload all knowledge)
 ./run.sh
@@ -92,11 +92,14 @@ similarity_threshold = 0.2
 ## 🧪 Testing
 
 ```bash
-# Run comprehensive smoke test
-python3 tests/smoke_test.py --no-save
+# Run Phase 1 validation tests (recommended after changes)
+python3 tests/test_phase1_validation.py
 
-# Debug prompts being sent to model
-python3 debug_prompt.py
+# Run comprehensive integration tests
+python3 tests/test_full_system_integration.py
+
+# Run memory sharing tests
+python3 tests/test_memory_sharing.py
 
 # Enable debug logging to see prompts in chat
 LOG_LEVEL=DEBUG ./run.sh
@@ -106,9 +109,12 @@ LOG_LEVEL=DEBUG ./run.sh
 
 ## 💡 Tips
 
-- The communal brain database `core/communal_brain.db` stores all memories, knowledge, and conversations
+- The communal brain database `core/data/communal_brain.db` stores all memories, knowledge, and conversations
+- Raw chat logs are saved to `core/data/last_context.txt` for debugging
+- Summaries are stored in `core/data/summaries/` to manage token limits
 - Conversations are now universal - start with one chatbot, continue with another using session IDs
-- Backup the communal brain database to preserve all your collective intelligence
+- Backup the `core/data/` directory to preserve all your collective intelligence
 - Use `./run.sh` for easy execution from any directory
 - Both Nano and Mini share the same brain, so learning on one benefits both
+- Run `python3 tests/test_phase1_validation.py` to verify system integrity after changes
 

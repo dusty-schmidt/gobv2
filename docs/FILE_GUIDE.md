@@ -1,7 +1,4 @@
-# File Guide - Chatbot v2
-
-## 🏗️ Project Structure
-# File Guide - Homelab Intelligence Framework
+# File Guide - Homelab Intelligence Framework (Phase 1 - Refactored)
 
 ## 🏗️ Project Structure
 
@@ -9,13 +6,34 @@
 gob/                        # Workspace root
 ├── core/                  # 🧠 Shared intelligence framework
 │   ├── brain/            # Communal brain implementation
-│   │   ├── brain.py      # Main CommunalBrain API
-│   │   ├── storage.py    # Storage abstraction layer
+│   │   ├── brain.py      # Main CommunalBrain API (refactored)
+│   │   ├── storage/      # 🗂️ Modularized storage system
+│   │   │   ├── __init__.py
+│   │   │   ├── interfaces.py    # Storage backend interfaces
+│   │   │   ├── config.py        # Storage configuration
+│   │   │   ├── abstraction.py   # Storage abstraction layer
+│   │   │   └── backends/
+│   │   │       ├── __init__.py
+│   │   │       └── sqlite.py    # SQLite backend implementation
+│   │   ├── components/  # 🧠 Refactored brain components
+│   │   │   ├── config.py        # Brain configuration
+│   │   │   ├── device.py        # Device management utilities
+│   │   │   └── sync.py          # Background synchronization
 │   │   ├── models.py     # Data structures
 │   │   ├── vector_search.py # Similarity algorithms
 │   │   └── conversation_manager.py # Universal conversation tracking
-│   ├── communal_brain.db # Live communal database
-│   ├── config/           # Global configuration system
+│   ├── data/             # 💾 Centralized data directory
+│   │   ├── communal_brain.db    # Main database
+│   │   ├── last_context.txt     # Raw chat logs
+│   │   ├── conversations/       # Active conversation files
+│   │   ├── summaries/           # Summarization outputs
+│   │   └── archive/             # Archived conversations
+│   ├── config/           # ⚙️ Unified configuration system
+│   │   ├── models.py     # Global configuration models
+│   │   └── loader.py     # Configuration loading utilities
+│   ├── di/               # 🏗️ Dependency injection container
+│   │   ├── __init__.py
+│   │   └── container.py  # DI container implementation
 │   ├── llm/              # LLM client abstraction
 │   └── logging.py        # Centralized logging
 ├── mini/                 # 🤖 Enhanced chatbot with communal brain
@@ -26,7 +44,10 @@ gob/                        # Workspace root
 │   └── docs/             # Documentation
 ├── nano/                 # 🔬 Simple chatbot with communal brain
 │   └── main.py           # Simple chatbot implementation
-├── tests/                # 🧪 Test suite
+├── tests/                # 🧪 Enhanced test suite
+│   ├── test_memory_sharing.py   # Memory sharing tests
+│   ├── test_phase1_validation.py # Phase 1 validation tests
+│   └── test_full_system_integration.py # Comprehensive integration tests
 ├── docs/                 # 📖 Centralized documentation
 └── run.py                # 🎯 CLI entry point for chatbots
 ```
@@ -35,21 +56,68 @@ gob/                        # Workspace root
 
 ### `core/brain/` - Communal Brain Implementation
 
-#### `brain.py` (18K)
+#### `brain.py` (12K - refactored)
 **Role:** Main CommunalBrain API
 - Central intelligence hub for all devices
 - Memory and knowledge storage/retrieval
 - Device management and registration
 - Statistics and monitoring
 - **Core of the shared intelligence system**
+- **Refactored:** Uses DI container and modular components
 
-#### `storage.py` (25K)
+#### `storage/` - Modularized Storage System 🗂️
+
+##### `interfaces.py` (2.1K)
+**Role:** Storage backend interfaces and protocols
+- Abstract base classes for storage backends
+- Type-safe interfaces for all storage operations
+- Protocol definitions for dependency injection
+- **Enables pluggable storage backends**
+
+##### `config.py` (1.2K)
+**Role:** Storage configuration management
+- StorageConfig dataclass with validation
+- Environment variable integration
+- Path resolution and validation
+- **Centralized storage configuration**
+
+##### `abstraction.py` (2.8K)
 **Role:** Storage abstraction layer
 - Backend-agnostic storage interface
-- SQLite implementation with vector search
-- PostgreSQL/Redis backend support
-- Conversation persistence
-- **Handles all data persistence**
+- Intelligent routing between backends
+- Caching and performance optimization
+- **Handles all data persistence operations**
+
+##### `backends/sqlite.py` (7.2K)
+**Role:** SQLite backend implementation
+- Complete SQLite storage implementation
+- Vector search with cosine similarity
+- WAL mode for concurrency
+- Comprehensive error handling
+- **Production-ready local storage**
+
+#### `components/` - Brain Component Modules 🧠
+
+##### `config.py` (1.1K)
+**Role:** Brain configuration
+- BrainConfig dataclass
+- Device and sync settings
+- Summarizer configuration
+- **Type-safe brain configuration**
+
+##### `device.py` (2.1K)
+**Role:** Device management utilities
+- Hardware capability detection
+- Device ID generation
+- Network information gathering
+- **Automated device profiling**
+
+##### `sync.py` (1.3K)
+**Role:** Background synchronization
+- Cross-device sync management
+- Background task coordination
+- Conflict resolution framework
+- **Enables distributed intelligence**
 
 #### `conversation_manager.py` (2.5K)
 **Role:** Universal conversation tracking
@@ -81,14 +149,33 @@ gob/                        # Workspace root
 - Error handling and retries
 - **Standardized LLM interface**
 
-### `core/config/` - Global Configuration
+### `core/config/` - Unified Configuration System ⚙️
+
+#### `models.py` (4.8K)
+**Role:** Global configuration models
+- LLMConfig, EmbeddingsConfig, StorageConfig
+- GlobalConfig aggregator class
+- Environment variable integration
+- Type validation and defaults
+- **Centralized, type-safe configuration**
+- **Phase 1:** Unified all configuration into single system
 
 #### `loader.py` (2.1K)
-**Role:** Configuration management
+**Role:** Configuration loading utilities
 - TOML configuration loading
 - Environment variable integration
 - Validation and defaults
-- **Centralized configuration system**
+- **Configuration loading helpers**
+
+### `core/di/` - Dependency Injection Container 🏗️
+
+#### `container.py` (2.5K)
+**Role:** Lightweight DI container
+- Service registration and resolution
+- Singleton and transient scopes
+- Automatic dependency injection
+- Type-safe service management
+- **Phase 1:** Enables loose coupling and testability**
 
 ### `src/utils/` - Shared Utilities
 
@@ -105,12 +192,26 @@ gob/                        # Workspace root
 
 ## 🧪 Testing (`tests/`)
 
-### `smoke_test.py` (8.5K)
-**Role:** Comprehensive smoke test
-- Tests all components without external APIs
-- Validates imports and basic functionality
-- Uses mock LLM client for testing
-- **Run to verify everything works**
+### `test_phase1_validation.py` (4.2K) - **NEW**
+**Role:** Phase 1 validation tests
+- Validates all Phase 1 architectural changes
+- Tests modular imports and DI container
+- Verifies configuration and storage systems
+- **Run after Phase 1 changes: `python3 tests/test_phase1_validation.py`**
+
+### `test_full_system_integration.py` (5.6K) - **NEW**
+**Role:** Comprehensive integration tests
+- Tests memory storage and retrieval
+- Validates conversation management
+- Checks context logging and summarization
+- Verifies data persistence across sessions
+- **End-to-end system validation**
+
+### `test_memory_sharing.py` (2.1K)
+**Role:** Memory sharing validation
+- Tests cross-device memory sharing
+- Validates communal brain functionality
+- **Core functionality verification**
 
 ---
 
@@ -153,7 +254,43 @@ gob/                        # Workspace root
 
 ## 📂 Data Directories
 
-### `knowledge_docs/`
+### `core/data/` - Centralized Data Storage 💾 **UPDATED**
+
+#### `communal_brain.db`
+**Role:** Main communal database
+- All memories, knowledge, and conversations
+- Device registrations and capabilities
+- Vector embeddings for semantic search
+- **Central intelligence repository**
+- **Phase 1:** Moved from `core/` to `core/data/`
+
+#### `last_context.txt`
+**Role:** Raw chat logs and context snapshots
+- Shows LLM prompts being sent
+- Memory retrieval results
+- Conversation context building
+- **Updated after each interaction**
+- **Phase 1:** Moved from `core/` to `core/data/`
+
+#### `conversations/`
+**Role:** Active conversation session storage
+- JSON files for conversation persistence
+- Organized by session ID and timestamp
+- **Real-time conversation data**
+
+#### `summaries/`
+**Role:** Summarization outputs
+- Summarized conversation files
+- Generated by background summarizer
+- **Token-bloat management**
+
+#### `archive/conversations/`
+**Role:** Archived conversation data
+- Original conversations after summarization
+- Historical conversation storage
+- **Long-term conversation history**
+
+### `mini/knowledge_docs/`
 **Role:** Knowledge base documents
 - Contains .txt files with information
 - Auto-loaded on first run
@@ -162,7 +299,7 @@ gob/                        # Workspace root
   - `python.txt` - Python programming info
   - `machine_learning.txt` - ML basics
 
-### `prompts/`
+### `mini/prompts/`
 **Role:** System prompts
 - `system.main.md` - Main system prompt
 - `system.role.md` - Role definition prompt
@@ -186,32 +323,47 @@ gob/                        # Workspace root
 
 ## 🗄️ Generated Files (Created at Runtime)
 
-### `core/communal_brain.db`
-**Role:** Communal SQLite database
+### `core/data/communal_brain.db`
+**Role:** Main communal database
 - Stores all memories, knowledge, and conversations
 - Device registrations and capabilities
 - Conversation sessions and history
 - Vector embeddings for semantic search
-- **Central intelligence repository for all chatbots**
+- **Central intelligence repository**
+- **Phase 1:** Relocated to `core/data/` directory
 
-### `core/communal_brain.db-wal` and `core/communal_brain.db-shm`
+### `core/data/communal_brain.db-wal` and `core/data/communal_brain.db-shm`
 **Role:** SQLite Write-Ahead Log files
 - Temporary files for WAL mode
 - Better concurrency and crash resistance
 - **Created automatically by SQLite**
+- **Phase 1:** Now in `core/data/` directory
 
 ### `core/data/last_context.txt`
-**Role:** Debug context snapshots
+**Role:** Raw chat logs and context snapshots
 - Shows LLM prompts being sent
 - Memory retrieval results
 - Conversation context building
 - **Updated after each interaction**
+- **Phase 1:** Relocated to `core/data/` directory
 
 ### `core/data/conversations/`
-**Role:** Conversation session storage
+**Role:** Active conversation session storage
 - JSON files for conversation persistence
 - Organized by session ID and timestamp
-- **Legacy storage, now superseded by database**
+- **Real-time conversation data**
+
+### `core/data/summaries/`
+**Role:** Summarization outputs
+- JSON files with summarized conversations
+- Generated by background summarizer agent
+- **Token-bloat management**
+
+### `core/data/archive/conversations/`
+**Role:** Archived conversation data
+- Original conversations after summarization
+- Historical conversation storage
+- **Long-term conversation history**
 
 ---
 
@@ -223,27 +375,35 @@ gob/                        # Workspace root
 - Collective learning benefits all implementations
 - Session-based conversation handoff
 
-**Modular Design:**
-- Clear separation of concerns
-- Easy to extend and maintain
-- Stable import paths via `__init__.py`
-- Backend-agnostic storage abstraction
+**Phase 1: Enhanced Modularity 🗂️**
+- **Storage Modularization:** Monolithic storage.py (947 lines) → 4 focused modules (<300 lines each)
+- **Dependency Injection:** Loose coupling with type-safe service management
+- **Unified Configuration:** Single source of truth with environment variable support
+- **Component Refactoring:** Brain logic split into focused, testable components
 
 **Scalability:**
 - From single device to distributed homelab
-- PostgreSQL backend ready for scale
-- Redis caching for performance
+- PostgreSQL/Redis backends ready for scale
 - Device capability-aware task routing
+- **Phase 1:** Cleaner backend abstraction for easy scaling
 
 **Developer Experience:**
 - `./run.sh` for easy execution
 - Clear documentation structure
-- Comprehensive test suite
+- **Phase 1:** Enhanced test suite with validation tests
 - Real-time brain sharing verified
+- **Phase 1:** Improved IDE support with better imports
 
 **Performance:**
 - SQLite with WAL mode for speed
 - Efficient vector operations
 - Optimized memory usage
 - Semantic search with relevance scoring
+- **Phase 1:** Better error handling and resource management
+
+**Maintainability:**
+- **Phase 1:** Single responsibility principle across all modules
+- **Phase 1:** Type-safe configuration and dependency injection
+- **Phase 1:** Comprehensive validation and testing
+- **Phase 1:** Clear separation of data storage in `core/data/`
 

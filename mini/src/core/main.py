@@ -145,10 +145,10 @@ class Chatbot:
         logger.info('Initializing communal brain')
         logger.info("🧠 Initializing Communal Brain...")
         brain_config = BrainConfig()
-        # Use communal database in gob/core/ instead of individual chatbot directories
+        # Use communal database in gob/core/data/ directory
         import os
         workspace_root = Path(__file__).parent.parent.parent.parent
-        communal_db_path = workspace_root / "core" / "communal_brain.db"
+        communal_db_path = workspace_root / "core" / "data" / "communal_brain.db"
         brain_config.storage.local_db_path = str(communal_db_path)
         brain_config.device_name = "Mini Chatbot"
         brain_config.device_location = "local"

@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terminal Chat</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg: #fefefe;
+            --text: #2c2c2c;
+            --text-dim: #8a8a8a;
+            --text-faint: #c4c4c4;
+            --accent: #007aff;
+            --accent-dim: #4da6ff;
+            --surface: rgba(248, 248, 248, 0.6);
+            --surface-hover: rgba(240, 240, 240, 0.8);
+            --border: rgba(200, 200, 200, 0.3);
+            --border-active: rgba(0, 122, 255, 0.4);
+            --shadow: rgba(0, 0, 0, 0.04);
+            --shadow-hover: rgba(0, 0, 0, 0.08);
+        }
+
+        [data-theme="dark"] {
+            --bg: #0a0a0a;
+            --text: #e0e0e0;
+            --text-dim: #808080;
+            --text-faint: #404040;
+            --accent: #0099ff;
+            --accent-dim: #66b3ff;
+            --surface: rgba(30, 30, 30, 0.6);
+            --surface-hover: rgba(40, 40, 40, 0.8);
+            --border: rgba(80, 80, 80, 0.3);
+            --border-active: rgba(0, 153, 255, 0.4);
+            --shadow: rgba(255, 255, 255, 0.02);
+            --shadow-hover: rgba(255, 255, 255, 0.04);
+        }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 13px;
+            font-weight: 300;
+            line-height: 1.6;
+            height: 100vh;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            position: relative;
+        }
+
+        /* Sidebar - barely visible until hovered */
+        .sidebar {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 60px;
+            background: transparent;
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            z-index: 10;
+            overflow: hidden;
+        }
+
+        .sidebar:hover {
+            width: 280px;
+            background: var(--surface);
+            backdrop-filter: blur(20px);
+            box-shadow: 4px 0 20px var(--shadow-hover);
+        }
+
+        .sidebar-content {
+            opacity: 0;
+            padding: 20px;
+            transition: opacity 0.3s ease 0.1s;
+        }
+
+        .sidebar:hover .sidebar-content {
+            opacity: 1;
+        }
+
+        .theme-toggle {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: none;
+            border: none;
+            color: var(--text-faint);
+            cursor: pointer;
+            font-size: 16px;
+            opacity: 0.6;
+            transition: all 0.3s ease;
+            z-index: 20;
+        }
+
+        .sidebar:hover .theme-toggle,
+        .theme-toggle:hover {
+            opacity: 1;
+            color: var(--accent);
+            transform: scale(1.1);
+        }
+
+        .new-session {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            padding: 12px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 11px;
+            width: 100%;
+            margin-top: 60px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .new-session:hover {
+            background: var(--surface-hover);
+            border-color: var(--accent);
+            color: var(--accent);
+            transform: translateY(-1px);
+        }
+
+        .sessions {
+            max-height: calc(100vh - 160px);
+            overflow-y: auto;
+            scrollbar-width: none;
+        }
+
+        .sessions::-webkit-scrollbar {
+            display: none;
+        }
+
+        .session {
+            padding: 8px 12px;
+            margin-bottom: 4px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            color: var(--text-dim);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .session:hover {
+            background: var(--surface-hover);
+            color: var(--text);
+        }
+
+        .session.active {
+            color: var(--accent);
+            background: rgba(0, 122, 255, 0.1);
+        }
+
+        .session-close {
+            opacity: 0;
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            font-size: 10px;
+            transition: opacity 0.2s ease;
+        }
+
+        .session:hover .session-close {
+            opacity: 0.7;
+        }
+
+        /* Main chat area */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding-left: 20px;
+            transition: padding-left 0.3s ease;
+        }
+
+        .sidebar:hover + .main {
+            padding-left: 300px;
+        }
+
+        .messages {
+            flex: 1;
+            padding: 40px 40px 0;
+            overflow-y: auto;
+            scrollbar-width: none;
+        }
+
+        .messages::-webkit-scrollbar {
+            display: none;
+        }
+
+        .message {
+            margin-bottom: 24px;
+            animation: fadeUp 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .message-header {
+            font-size: 10px;
+            color: var(--text-faint);
+            margin-bottom: 4px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .message:hover .message-header {
+            opacity: 1;
+        }
+
+        .message-content {
+            color: var(--text);
+            line-height: 1.7;
+            white-space: pre-wrap;
+        }
+
+        .message.user .message-content {
+            color: var(--accent);
+        }
+
+        .message.assistant .message-content {
+            color: var(--text-dim);
+        }
+
+        /* Input area - invisible until focused */
+        .input-area {
+            padding: 20px 40px 40px;
+            position: relative;
+        }
+
+        .file-upload-indicator {
+            position: absolute;
+            top: -10px;
+            left: 40px;
+            right: 40px;
+            background: var(--surface);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 11px;
+            color: var(--text-dim);
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            display: none;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .file-upload-indicator.show {
+            display: flex;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .file-remove {
+            background: none;
+            border: none;
+            color: var(--text-faint);
+            cursor: pointer;
+            font-size: 10px;
+            margin-left: auto;
+            transition: color 0.2s ease;
+        }
+
+        .file-remove:hover {
+            color: var(--accent);
+        }
+
+        .input-container {
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            padding: 16px 20px;
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+            position: relative;
+        }
+
+        .input-container::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: var(--surface);
+            backdrop-filter: blur(20px);
+            border-radius: 8px;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            z-index: -1;
+        }
+
+        .input-container:hover::before,
+        .input-container:focus-within::before {
+            opacity: 1;
+        }
+
+        .input-container:focus-within {
+            border-color: var(--border-active);
+            box-shadow: 0 0 0 1px var(--border-active), 0 8px 24px var(--shadow-hover);
+        }
+
+        .prompt {
+            color: var(--text-faint);
+            font-size: 11px;
+            opacity: 0;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .input-container:hover .prompt,
+        .input-container:focus-within .prompt {
+            opacity: 1;
+            color: var(--accent-dim);
+        }
+
+        .input {
+            flex: 1;
+            background: none;
+            border: none;
+            outline: none;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 13px;
+            resize: none;
+            min-height: 20px;
+            max-height: 120px;
+            font-weight: 300;
+        }
+
+        .input::placeholder {
+            color: var(--text-faint);
+            opacity: 0.6;
+        }
+
+        .input:focus::placeholder {
+            opacity: 0.3;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .input-container:hover .actions,
+        .input-container:focus-within .actions {
+            opacity: 1;
+        }
+
+        .action {
+            background: none;
+            border: none;
+            color: var(--text-faint);
+            cursor: pointer;
+            font-size: 12px;
+            padding: 4px 6px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            opacity: 0.6;
+        }
+
+        .action:hover {
+            opacity: 1;
+            color: var(--accent);
+            background: rgba(0, 122, 255, 0.1);
+        }
+
+        .action:disabled {
+            opacity: 0.2;
+            cursor: not-allowed;
+        }
+
+        .file-input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Animations */
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main {
+                padding-left: 10px;
+            }
+            
+            .sidebar:hover + .main {
+                padding-left: 240px;
+            }
+            
+            .messages {
+                padding: 20px 20px 0;
+            }
+            
+            .input-area {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Invisible sidebar until hovered -->
+        <div class="sidebar">
+            <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">◐</button>
+            
+            <div class="sidebar-content">
+                <button class="new-session" onclick="createNewSession()">+ New Session</button>
+                
+                <div class="sessions" id="sessions">
+                    <!-- Sessions populated here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Main area -->
+        <div class="main">
+            <div class="messages" id="messages">
+                <div class="message assistant">
+                    <div class="message-header">assistant • now</div>
+                    <div class="message-content">ready</div>
+                </div>
+            </div>
+            
+            <div class="input-area">
+                <div class="file-upload-indicator" id="fileIndicator">
+                    <span>📎</span>
+                    <span id="fileName"></span>
+                    <button class="file-remove" onclick="removeFile()">×</button>
+                </div>
+                
+                <div class="input-container">
+                    <div class="prompt">$</div>
+                    <textarea 
+                        class="input" 
+                        id="messageInput"
+                        placeholder="type message..."
+                        rows="1"
+                        onkeydown="handleKeyDown(event)"
+                        oninput="adjustHeight(this); updateActions()"
+                    ></textarea>
+                    <div class="actions">
+                        <input type="file" class="file-input" id="fileInput" onchange="handleFileUpload(event)">
+                        <button class="action" onclick="document.getElementById('fileInput').click()" title="attach">📎</button>
+                        <button class="action" id="sendBtn" onclick="sendMessage()" disabled title="send">↵</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentTheme = 'dark';
+        let sessions = [{ 
+            id: 1, 
+            title: '001', 
+            messages: [], 
+            active: true 
+        }];
+        let currentSessionId = 1;
+        let nextId = 2;
+        let uploadedFile = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            renderSessions();
+        });
+
+        function toggleTheme() {
+            currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+            document.body.setAttribute('data-theme', currentTheme);
+        }
+
+        function createNewSession() {
+            const newSession = {
+                id: nextId++,
+                title: String(nextId - 1).padStart(3, '0'),
+                messages: [],
+                active: false
+            };
+            
+            sessions.forEach(s => s.active = false);
+            newSession.active = true;
+            sessions.push(newSession);
+            currentSessionId = newSession.id;
+            
+            renderSessions();
+            loadSession(newSession.id);
+        }
+
+        function switchSession(id) {
+            sessions.forEach(s => s.active = s.id === id);
+            currentSessionId = id;
+            renderSessions();
+            loadSession(id);
+        }
+
+        function closeSession(id, event) {
+            event.stopPropagation();
+            if (sessions.length <= 1) return;
+            
+            const index = sessions.findIndex(s => s.id === id);
+            sessions.splice(index, 1);
+            
+            if (id === currentSessionId) {
+                const next = sessions[Math.max(0, index - 1)];
+                switchSession(next.id);
+            } else {
+                renderSessions();
+            }
+        }
+
+        function renderSessions() {
+            const container = document.getElementById('sessions');
+            container.innerHTML = '';
+            
+            sessions.forEach(session => {
+                const div = document.createElement('div');
+                div.className = `session ${session.active ? 'active' : ''}`;
+                div.onclick = () => switchSession(session.id);
+                div.innerHTML = `
+                    <span>${session.title}</span>
+                    <button class="session-close" onclick="closeSession(${session.id}, event)">×</button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function loadSession(id) {
+            const session = sessions.find(s => s.id === id);
+            if (!session) return;
+            
+            const messages = document.getElementById('messages');
+            messages.innerHTML = `
+                <div class="message assistant">
+                    <div class="message-header">assistant • ${new Date().toLocaleTimeString('en-US', {hour12: false}).slice(0,5)}</div>
+                    <div class="message-content">ready</div>
+                </div>
+            `;
+            
+            session.messages.forEach(msg => addMessageToDOM(msg.type, msg.content));
+            scrollToBottom();
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                uploadedFile = file;
+                document.getElementById('fileName').textContent = file.name;
+                document.getElementById('fileIndicator').classList.add('show');
+            }
+        }
+
+        function removeFile() {
+            uploadedFile = null;
+            document.getElementById('fileIndicator').classList.remove('show');
+            document.getElementById('fileInput').value = '';
+        }
+
+        function adjustHeight(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+        }
+
+        function updateActions() {
+            const input = document.getElementById('messageInput');
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = input.value.trim().length === 0 && !uploadedFile;
+        }
+
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (message === '' && !uploadedFile) return;
+            
+            if (message) {
+                addMessage('user', message);
+            }
+            
+            if (uploadedFile) {
+                addMessage('user', `[${uploadedFile.name}]`);
+                removeFile();
+            }
+            
+            input.value = '';
+            input.style.height = 'auto';
+            updateActions();
+            
+            // Simulate response
+            setTimeout(() => {
+                const responses = ['understood', 'processing', 'analyzed', 'completed', 'acknowledged'];
+                addMessage('assistant', responses[Math.floor(Math.random() * responses.length)]);
+            }, 600 + Math.random() * 800);
+        }
+
+        function addMessage(type, content) {
+            const session = sessions.find(s => s.id === currentSessionId);
+            if (session) {
+                session.messages.push({ type, content });
+            }
+            addMessageToDOM(type, content);
+        }
+
+        function addMessageToDOM(type, content) {
+            const messages = document.getElementById('messages');
+            const time = new Date().toLocaleTimeString('en-US', {hour12: false}).slice(0,5);
+            
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.innerHTML = `
+                <div class="message-header">${type} • ${time}</div>
+                <div class="message-content">${content}</div>
+            `;
+            
+            messages.appendChild(div);
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            const messages = document.getElementById('messages');
+            messages.scrollTop = messages.scrollHeight;
+        }
+    </script>
+</body>
+</html>
+            

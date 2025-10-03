@@ -1,0 +1,10 @@
+{
+  "original_session_id": "DataSavingTest_2d42ff0f",
+  "device": "DataSavingTest",
+  "original_timestamp": "2025-10-03T13:26:10.834293",
+  "original_message_count": 4,
+  "summary": "This is a test summary of the conversation",
+  "summarized_at": "2025-10-03T13:26:10.844850",
+  "summarizer_model": "test-model",
+  "file_size_bytes": 1024
+}

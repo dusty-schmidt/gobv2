@@ -22,7 +22,7 @@ async def test_memory_sharing():
 
     # Initialize communal brain
     config = BrainConfig()
-    communal_db_path = workspace_root / "core" / "communal_brain.db"
+    communal_db_path = workspace_root / "core" / "data" / "communal_brain.db"
     config.storage.local_db_path = str(communal_db_path)
     config.device_name = "Test Script"
     config.device_location = "local"

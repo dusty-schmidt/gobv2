@@ -232,7 +232,7 @@ class SyncOperation:
 
 9. **Chatbot Integration**
      - Mini chatbot with universal conversations ✅
-     - Nano chatbot with universal conversations ✅
+     - Legacy Nano chatbot archived (replaced by unified communal tiers)
      - Session management across chatbots ✅
      - Real-time brain sharing verified ✅
      - **Updated:** Both use data/ directory for storage ✅

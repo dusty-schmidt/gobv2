@@ -7,6 +7,7 @@ from .llm_client import LLMClient
 from ..utils import get_logger
 from datetime import datetime
 from core.brain.conversation_manager import UniversalConversationManager
+from core.brain.context_builder import build_context_block
 logger = get_logger(__name__)
 
 
@@ -47,15 +48,15 @@ class ChatHandler:
         # Session management
         self.current_session_id = None
 
-    def start_conversation(self, session_id: str = None) -> str:
+    async def start_conversation(self, session_id: str = None) -> str:
         """Start a new conversation session"""
-        self.current_session_id = self.conversation_manager.start_conversation("mini", session_id)
+        self.current_session_id = await self.conversation_manager.start_conversation("mini", session_id)
         return self.current_session_id
 
-    def end_conversation(self):
+    async def end_conversation(self):
         """End the current conversation session"""
         if self.current_session_id:
-            self.conversation_manager.end_conversation(self.current_session_id)
+            await self.conversation_manager.end_conversation(self.current_session_id)
             self.current_session_id = None
 
     async def generate_response(self, user_message: str, query_embedding: List[float] = None) -> tuple:
@@ -71,7 +72,7 @@ class ChatHandler:
         """
         # Ensure we have a session
         if not self.current_session_id:
-            self.start_conversation()
+            await self.start_conversation()
 
         # Generate embedding if not provided
         if query_embedding is None:
@@ -94,15 +95,21 @@ class ChatHandler:
             min_similarity=self.knowledge_config.similarity_threshold if self.knowledge_config else 0.4
         )
 
+        conversation_history = await self.conversation_manager.get_conversation_history(
+            self.current_session_id,
+            max_turns=self.memory_config.max_conversation_history if self.memory_config else 8
+        )
+
         # Generate response using comprehensive context
         response, token_info = await self._generate_response(
             user_message,
             relevant_memories,
-            knowledge_results
+            knowledge_results,
+            conversation_history
         )
 
         # Add conversation turn to universal manager
-        self.conversation_manager.add_turn(
+        await self.conversation_manager.add_turn(
             self.current_session_id,
             user_message,
             response,
@@ -127,7 +134,8 @@ class ChatHandler:
         self,
         user_message: str,
         memories: List,
-        knowledge: List
+        knowledge: List,
+        conversation_history
     ) -> tuple:
         """
         Build comprehensive context and generate LLM response
@@ -164,10 +172,17 @@ class ChatHandler:
             })
 
         # Build comprehensive context like Nano does
-        full_context = self._build_comprehensive_context(user_message, memory_dicts, knowledge_dicts)
+        full_context = build_context_block(
+            user_message=user_message,
+            conversation_history=conversation_history,
+            memories=memory_dicts,
+            knowledge=knowledge_dicts,
+            max_memory_items=self.memory_config.top_k if self.memory_config else 3,
+            max_knowledge_items=self.knowledge_config.top_k if self.knowledge_config else 2,
+        )
 
         # Save context for debugging (like Nano does)
-        self._save_context_snapshot(full_context, user_message, memory_dicts, knowledge_dicts)
+        await self._save_context_snapshot(full_context, user_message, memory_dicts, knowledge_dicts)
 
         # For LLM API, send as separate messages for better control
         messages = [
@@ -185,49 +200,6 @@ class ChatHandler:
 
         return response, token_info
 
-    def _build_comprehensive_context(self, user_message: str, memories: List[Dict], knowledge: List[Dict]) -> str:
-        """Build comprehensive context including conversation history, memories, and knowledge"""
-        context_parts = []
-
-        # Add recent conversation context from universal manager
-        if self.current_session_id:
-            conversation_history = self.conversation_manager.get_conversation_history(self.current_session_id, max_turns=8)
-            if conversation_history:
-                context_parts.append("=== RECENT CONVERSATION HISTORY ===")
-                for turn in conversation_history:  # Show all turns except current user message
-                    if turn.user_message:
-                        context_parts.append(f"**USER**: {turn.user_message}")
-                    if turn.bot_response:
-                        context_parts.append(f"**ASSISTANT**: {turn.bot_response}")
-                context_parts.append("")
-
-        # Add relevant long-term memories
-        if memories:
-            context_parts.append("=== RELEVANT LONG-TERM MEMORIES ===")
-            for i, mem in enumerate(memories[:3], 1):  # Limit to 3 for conciseness
-                context_parts.append(
-                    f"**Memory {i}** (relevance: {mem['similarity_score']:.2f}):"
-                    f"\n  User asked: {mem['user_message']}"
-                    f"\n  Assistant replied: {mem['bot_response']}"
-                )
-            context_parts.append("")
-
-        # Add knowledge if available
-        if knowledge:
-            context_parts.append("=== RELEVANT KNOWLEDGE ===")
-            for i, kb in enumerate(knowledge[:2], 1):  # Limit to 2 knowledge items
-                source = kb['metadata'].get('source', 'Unknown')
-                context_parts.append(
-                    f"**Knowledge {i}** (relevance: {kb['similarity_score']:.2f}, source: {source}):"
-                    f"\n  {kb['text'][:500]}{'...' if len(kb['text']) > 500 else ''}"
-                )
-            context_parts.append("")
-
-        # Add current user message
-        context_parts.append(f"=== CURRENT USER MESSAGE ===\n{user_message}")
-
-        return "\n".join(context_parts)
-
     def _get_system_prompt(self) -> str:
         """Get system prompt for Mini chatbot"""
         return (
@@ -238,7 +210,7 @@ class ChatHandler:
             "conversation when appropriate."
         )
 
-    def _save_context_snapshot(self, full_context: str, user_message: str,
+    async def _save_context_snapshot(self, full_context: str, user_message: str,
                               memories: List[Dict], knowledge: List[Dict]):
         """Save context snapshot for debugging (like Nano does)"""
         try:
@@ -252,7 +224,7 @@ class ChatHandler:
             # Get conversation summary for stats
             conversation_turns = 0
             if self.current_session_id:
-                summary = self.conversation_manager.get_conversation_summary(self.current_session_id)
+                summary = await self.conversation_manager.get_conversation_summary(self.current_session_id)
                 conversation_turns = summary.get('total_turns', 0)
 
             logger.info(f"Saving Mini context snapshot to: {context_file}")
@@ -278,19 +250,19 @@ class ChatHandler:
             import traceback
             logger.error(traceback.format_exc())
 
-    def clear_conversation(self):
+    async def clear_conversation(self):
         """Clear conversation history by ending current session and starting new one"""
         if self.current_session_id:
-            self.conversation_manager.end_conversation(self.current_session_id)
-        self.start_conversation()
+            await self.conversation_manager.end_conversation(self.current_session_id)
+        await self.start_conversation()
+        return self.current_session_id
 
-    def get_conversation_history(self, max_turns=10):
+    async def get_conversation_history(self, max_turns=10):
         """Get conversation history for current session"""
         if self.current_session_id:
-            return self.conversation_manager.get_conversation_history(self.current_session_id, max_turns)
+            return await self.conversation_manager.get_conversation_history(self.current_session_id, max_turns)
         return []
 
-    def list_all_conversations(self, limit=10):
+    async def list_all_conversations(self, limit=10):
         """List all conversations across all chatbots"""
-        return self.conversation_manager.list_all_conversations(limit)
-
+        return await self.conversation_manager.list_all_conversations(limit)

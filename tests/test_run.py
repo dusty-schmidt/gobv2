@@ -9,7 +9,7 @@ import sys
 import time
 from pathlib import Path
 
-def test_chatbot_launch(chatbot_num, name):
+def test_chatbot_launch(selection, name):
     """Test launching a specific chatbot"""
     print(f"\n🧪 Testing {name} launch from gob/run.py...")
 
@@ -25,7 +25,7 @@ def test_chatbot_launch(chatbot_num, name):
 
     try:
         # Send the chatbot selection
-        stdout, stderr = process.communicate(input=f"{chatbot_num}\n", timeout=10)
+        stdout, stderr = process.communicate(input=f"{selection}\n", timeout=10)
 
         print("📄 STDOUT:")
         print(stdout)
@@ -55,19 +55,19 @@ def main():
     print("🧪 Testing GOB run.py entry point")
     print("=" * 50)
 
-    # Test Nano chatbot (option 2)
-    nano_success = test_chatbot_launch(2, "Nano v1.0")
+    # Test Mini chatbot via keyword input
+    mini_success = test_chatbot_launch("mini", "Mini v3.0")
 
-    # Test Mini chatbot (option 1)
-    mini_success = test_chatbot_launch(1, "Mini v3.0")
+    # Test Main agent via keyword input
+    main_success = test_chatbot_launch("main", "Main v1.0")
 
     print("\n" + "=" * 50)
     print("📊 Test Results:")
-    print(f"   Nano: {'✅ PASS' if nano_success else '❌ FAIL'}")
     print(f"   Mini: {'✅ PASS' if mini_success else '❌ FAIL'}")
+    print(f"   Main: {'✅ PASS' if main_success else '❌ FAIL'}")
 
-    if nano_success and mini_success:
-        print("🎉 All chatbots launch successfully from gob/run.py!")
+    if mini_success and main_success:
+        print("🎉 Chatbots launch successfully from gob/run.py!")
         return True
     else:
         print("❌ Some chatbots failed to launch!")

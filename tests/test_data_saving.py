@@ -64,14 +64,14 @@ async def test_data_saving():
     from core.brain.conversation_manager import UniversalConversationManager
 
     conv_manager = UniversalConversationManager(brain)
-    session_id = conv_manager.start_conversation("DataSavingTest")
+    session_id = await conv_manager.start_conversation("DataSavingTest")
 
     # Add conversation turns
-    conv_manager.add_turn(session_id, "What is AI?", "AI stands for Artificial Intelligence", tokens_used=10)
-    conv_manager.add_turn(session_id, "Tell me more", "AI systems can learn and make decisions", tokens_used=8)
+    await conv_manager.add_turn(session_id, "What is AI?", "AI stands for Artificial Intelligence", tokens_used=10)
+    await conv_manager.add_turn(session_id, "Tell me more", "AI systems can learn and make decisions", tokens_used=8)
 
     # Check conversation history
-    history = conv_manager.get_conversation_history(session_id)
+    history = await conv_manager.get_conversation_history(session_id)
     assert len(history) == 2, f"Expected 2 conversation turns, got {len(history)}"
     print(f"✅ Conversation with {len(history)} turns managed")
 

@@ -490,8 +490,6 @@
         let uploadedFile = null;
 
         document.addEventListener('DOMContentLoaded', function() {
-            // Apply initial theme so the UI matches JS state on first paint
-            document.body.setAttribute('data-theme', currentTheme);
             renderSessions();
         });
 
@@ -542,35 +540,15 @@
         function renderSessions() {
             const container = document.getElementById('sessions');
             container.innerHTML = '';
-
+            
             sessions.forEach(session => {
                 const div = document.createElement('div');
                 div.className = `session ${session.active ? 'active' : ''}`;
-                div.setAttribute('role', 'button');
-                div.setAttribute('tabindex', '0');
-                div.setAttribute('aria-pressed', session.active ? 'true' : 'false');
-
-                // Click/keyboard to switch session
-                div.addEventListener('click', () => switchSession(session.id));
-                div.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        switchSession(session.id);
-                    }
-                });
-
-                const span = document.createElement('span');
-                span.textContent = session.title;
-
-                const btn = document.createElement('button');
-                btn.className = 'session-close';
-                btn.type = 'button';
-                btn.setAttribute('aria-label', `Close session ${session.title}`);
-                btn.textContent = '×';
-                btn.addEventListener('click', (e) => closeSession(session.id, e));
-
-                div.appendChild(span);
-                div.appendChild(btn);
+                div.onclick = () => switchSession(session.id);
+                div.innerHTML = `
+                    <span>${session.title}</span>
+                    <button class="session-close" onclick="closeSession(${session.id}, event)">×</button>
+                `;
                 container.appendChild(div);
             });
         }
@@ -578,12 +556,15 @@
         function loadSession(id) {
             const session = sessions.find(s => s.id === id);
             if (!session) return;
-
+            
             const messages = document.getElementById('messages');
-            // clear and add a fresh assistant 'ready' message (safe text nodes)
-            messages.innerHTML = '';
-            addMessageToDOM('assistant', 'ready');
-
+            messages.innerHTML = `
+                <div class="message assistant">
+                    <div class="message-header">assistant • ${new Date().toLocaleTimeString('en-US', {hour12: false}).slice(0,5)}</div>
+                    <div class="message-content">ready</div>
+                </div>
+            `;
+            
             session.messages.forEach(msg => addMessageToDOM(msg.type, msg.content));
             scrollToBottom();
         }
@@ -658,22 +639,14 @@
         function addMessageToDOM(type, content) {
             const messages = document.getElementById('messages');
             const time = new Date().toLocaleTimeString('en-US', {hour12: false}).slice(0,5);
-
+            
             const div = document.createElement('div');
             div.className = `message ${type}`;
-
-            const header = document.createElement('div');
-            header.className = 'message-header';
-            header.textContent = `${type} • ${time}`;
-
-            const body = document.createElement('div');
-            body.className = 'message-content';
-            // Insert as text to avoid interpreting HTML (prevents XSS)
-            body.textContent = content;
-
-            div.appendChild(header);
-            div.appendChild(body);
-
+            div.innerHTML = `
+                <div class="message-header">${type} • ${time}</div>
+                <div class="message-content">${content}</div>
+            `;
+            
             messages.appendChild(div);
             scrollToBottom();
         }

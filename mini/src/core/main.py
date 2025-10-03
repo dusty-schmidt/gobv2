@@ -200,7 +200,7 @@ class Chatbot:
         )
 
         # Start a conversation session
-        session_id = self.chat_handler.start_conversation()
+        session_id = await self.chat_handler.start_conversation()
         print(f"💬 Session ID: {session_id}")
 
         print("\n" + "="*60)
@@ -281,7 +281,7 @@ class Chatbot:
         memories_after = stats_after['memory_count']
 
         # Get conversation context info for stats
-        conversation_summary = self.chat_handler.conversation_manager.get_conversation_summary(self.chat_handler.current_session_id)
+        conversation_summary = await self.chat_handler.conversation_manager.get_conversation_summary(self.chat_handler.current_session_id)
         conversation_turns = conversation_summary.get('total_turns', 0)
         conversation_context_used = conversation_turns > 1  # True if we have conversation history
 
@@ -330,12 +330,12 @@ class Chatbot:
                     continue
 
                 if user_input.lower() == 'clear':
-                    self.chat_handler.clear_conversation()
+                    await self.chat_handler.clear_conversation()
                     print("🧹 Conversation history cleared. Starting fresh!")
                     continue
 
                 if user_input.lower() == 'sessions':
-                    conversations = self.chat_handler.list_all_conversations(limit=10)
+                    conversations = await self.chat_handler.list_all_conversations(limit=10)
                     if conversations:
                         print("\n📋 Recent Conversations:")
                         for conv in conversations:
@@ -466,7 +466,7 @@ async def main():
         if 'bot' in locals():
             # End conversation session
             if hasattr(bot, 'chat_handler') and bot.chat_handler.current_session_id:
-                bot.chat_handler.end_conversation()
+                await bot.chat_handler.end_conversation()
             await bot.brain.close()  # Close communal brain
 
 if __name__ == "__main__":

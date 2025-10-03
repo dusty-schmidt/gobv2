@@ -18,15 +18,15 @@ gob/                        # Workspace root
 │   ├── prompts/         # System prompts
 │   ├── knowledge_docs/  # Knowledge base input
 │   └── docs/            # Documentation
-├── nano/                 # 🔬 Simple chatbot with communal brain (Tier 1)
-│   └── main.py          # Simple chatbot implementation
+├── main/                 # 🛠️ Emerging agent tier (Tier 2 work in progress)
+│   └── agent.py         # Fire-based CLI agent prototype
+├── max/                  # 🚀 Advanced Agent Zero framework (Tier 3 research)
 
 ├── tests/               # 🧪 Test suite
 │   ├── test_memory_sharing.py    # Communal brain tests
 │   ├── test_mini_chatbot.py      # Mini chatbot tests
-│   ├── test_nano_llm.py          # Nano LLM tests
-│   ├── test_nano_stats.py        # Nano stats display tests
-│   └── test_run.py               # Entry point tests
+│   ├── test_run.py               # Entry point tests
+│   └── test_nano_*.py            # Legacy Nano placeholders (retired tier)
 ├── docs/                 # 📖 Centralized documentation
 │   ├── CENTRALBRAIN.md  # Communal brain architecture
 │   ├── PROJECT_STATUS.md # Development status
@@ -55,7 +55,7 @@ gob/                        # Workspace root
 - ✅ Storage abstraction layer (SQLite + extensible)
 - ✅ Device management and auto-detection
 - ✅ Mini chatbot integration with communal brain
-- ✅ Nano chatbot integration with communal brain
+- 🛈 Legacy Nano chatbot retired in favor of communal brain tiers
 - ✅ **Universal Conversation Manager** - centralized conversation tracking
 - ✅ **Cross-device conversation continuity** - sessions work across chatbots
 - ✅ **Session-based conversations** - unique IDs for conversation handoff
@@ -157,7 +157,7 @@ tomli>=2.0.0         # TOML configuration
 - **Universal Conversation Manager** - centralized conversation tracking
 - **Session-based conversation continuity** - handoff between chatbots
 - Mini chatbot integration with communal brain
-- Nano chatbot integration with communal brain
+- Legacy Nano chatbot archived in favor of communal brain tiers
 - Cross-device memory sharing and statistics
 - Centralized database in gob/core/
 - Global configuration and logging systems
@@ -186,7 +186,6 @@ tomli>=2.0.0         # TOML configuration
 - **[Quick Start](./docs/QUICKSTART.md)** - Getting started guide
 - **[Core Framework](./core/README.md)** - API documentation for the shared components
 - **[Mini Chatbot](./mini/README.md)** - Enhanced chatbot with vector memory and knowledge base
-- **[Nano Chatbot](./nano/README.md)** - Simple chatbot for testing and lightweight devices
 - **[Test Suite](./tests/)** - Automated tests for all components
 
 ## Philosophy

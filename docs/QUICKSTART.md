@@ -41,9 +41,9 @@ Edit `config.toml` to customize models, prompts, and settings.
 - (later) "What's my name?"
 
 ### Test universal conversations:
-- Start with Nano: "Let's talk about Python programming"
-- Switch to Mini and continue: "Tell me more about classes"
-- Both chatbots share the same conversation history!
+- Start with Mini: "Let's talk about Python programming"
+- Switch to Main and continue: "Tell me more about classes"
+- Both tiers share the same conversation history through the communal brain!
 
 ### Special commands:
 - Type `stats` to see database statistics
@@ -115,6 +115,5 @@ LOG_LEVEL=DEBUG ./run.sh
 - Conversations are now universal - start with one chatbot, continue with another using session IDs
 - Backup the `core/data/` directory to preserve all your collective intelligence
 - Use `./run.sh` for easy execution from any directory
-- Both Nano and Mini share the same brain, so learning on one benefits both
+- Mini and Main both ride the communal brain, so learning on one benefits the other
 - Run `python3 tests/test_phase1_validation.py` to verify system integrity after changes
-

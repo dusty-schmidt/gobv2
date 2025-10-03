@@ -16,7 +16,7 @@ from datetime import datetime
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.summarizer_agent import SummarizerAgent, SummarizerConfig
+from core.agents.summarizer import SummarizerAgent, SummarizerConfig
 from core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -124,7 +124,7 @@ async def test_summarizer_agent():
                     print(f"   Original messages: {summary_data['original_message_count']}")
                     print(f"   Summarized at: {summary_data['summarized_at']}")
                     print(f"   Model used: {summary_data['summarizer_model']}")
-                    print("   Summary text:"
+                    print("   Summary text:")
                     print(f"   {summary_data['summary'][:200]}...")
 
                 # Check if original was archived
@@ -160,9 +160,10 @@ async def test_summarizer_agent():
 
         # Get summarizer stats
         stats = summarizer.get_stats()
-        print("
-📊 Summarizer Stats:"        for key, value in stats.items():
-            print(f"   {key}: {value}")
+        if stats:
+            print("\n📊 Summarizer Stats:")
+            for key, value in stats.items():
+                print(f"   {key}: {value}")
 
     print("\n🎉 SummarizerAgent testing completed!")
 

@@ -55,14 +55,14 @@ class SystemIntegrationTester:
         self.conversation_manager = UniversalConversationManager(self.brain)
 
         # Start a test conversation session
-        self.session_id = self.conversation_manager.start_conversation("IntegrationTest")
+        self.session_id = await self.conversation_manager.start_conversation("IntegrationTest")
 
         print("✅ System setup complete")
 
     async def teardown(self):
         """Clean up system components"""
         if self.session_id:
-            self.conversation_manager.end_conversation(self.session_id)
+            await self.conversation_manager.end_conversation(self.session_id)
         if self.brain:
             await self.brain.close()
         print("🧹 System cleanup complete")
@@ -121,7 +121,7 @@ class SystemIntegrationTester:
         ]
 
         for user_msg, bot_response in conversation_turns:
-            self.conversation_manager.add_turn(
+            await self.conversation_manager.add_turn(
                 self.session_id,
                 user_msg,
                 bot_response,
@@ -130,11 +130,11 @@ class SystemIntegrationTester:
             )
 
         # Verify conversation history
-        history = self.conversation_manager.get_conversation_history(self.session_id)
+        history = await self.conversation_manager.get_conversation_history(self.session_id)
         assert len(history) == len(conversation_turns), f"Expected {len(conversation_turns)} turns, got {len(history)}"
 
         # Verify conversation summary
-        summary = self.conversation_manager.get_conversation_summary(self.session_id)
+        summary = await self.conversation_manager.get_conversation_summary(self.session_id)
         assert summary['total_turns'] == len(conversation_turns), "Conversation summary incorrect"
 
         print(f"✅ Conversation with {len(conversation_turns)} turns managed successfully")

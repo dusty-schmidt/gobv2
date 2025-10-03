@@ -3,51 +3,17 @@ Main CommunalBrain class - central intelligence hub for all devices
 """
 
 import asyncio
-import os
-import platform
-import socket
 import uuid
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any, Tuple
 from pathlib import Path
 
-from .models import DeviceContext, DeviceTier, DeviceStatus, MemoryItem, KnowledgeItem
-from .storage import StorageAbstraction, StorageConfig
-from ..agents.summarizer import SummarizerAgent, SummarizerConfig
-
-
-@dataclass
-class BrainConfig:
-    """Configuration for the communal brain"""
-    storage: StorageConfig = field(default_factory=StorageConfig)
-
-    # Device identification
-    device_id: Optional[str] = None  # Auto-generated if None
-    device_name: Optional[str] = None  # Auto-detected if None
-    device_location: str = "unknown"
-
-    # Device capabilities (auto-detected)
-    hardware_tier: Optional[DeviceTier] = None
-    capabilities: List[str] = field(default_factory=list)
-
-    # Sync settings
-    enable_sync: bool = True
-    sync_interval: int = 30  # seconds
-    max_offline_queue: int = 1000
-
-    # Cache settings
-    enable_cache: bool = True
-    cache_ttl: int = 3600  # 1 hour
-
-    # Brain settings
-    max_memory_items: int = 10000
-    max_knowledge_items: int = 50000
-    auto_cleanup_threshold: float = 0.8  # Cleanup when 80% full
-
-    # Summarizer settings
-    enable_summarizer: bool = True
-    summarizer: SummarizerConfig = field(default_factory=SummarizerConfig)
+from .models import DeviceContext, DeviceStatus, MemoryItem, KnowledgeItem
+from .storage import StorageAbstraction
+from .components.config import BrainConfig
+from .components.device import DeviceManager
+from .components.sync import SyncManager
+from ..agents.summarizer import SummarizerAgent
 
 
 class CommunalBrain:
@@ -60,23 +26,22 @@ class CommunalBrain:
 
     def __init__(self, config: BrainConfig):
         self.config = config
-        self.device_id = config.device_id or self._generate_device_id()
+        self.device_id = config.device_id or DeviceManager.generate_device_id()
         self.storage = StorageAbstraction(config.storage)
 
         # Device context for this instance
-        self.device_context = DeviceContext(
+        self.device_context = DeviceManager.create_device_context(
             device_id=self.device_id,
-            hardware_tier=config.hardware_tier or self._detect_hardware_tier(),
-            capabilities=config.capabilities or self._detect_capabilities(),
+            device_name=config.device_name,
             location=config.device_location,
-            hostname=self._get_hostname(),
-            ip_address=self._get_ip_address(),
-            status=DeviceStatus.ONLINE
+            hardware_tier=config.hardware_tier,
+            capabilities=config.capabilities if config.capabilities else None
         )
+        self.device_context.status = DeviceStatus.ONLINE
 
         # Runtime state
         self._initialized = False
-        self._sync_task: Optional[asyncio.Task] = None
+        self.sync_manager = SyncManager(self)
         self.summarizer: Optional[SummarizerAgent] = None
 
     async def initialize(self) -> None:
@@ -102,20 +67,16 @@ class CommunalBrain:
             # Run startup summarization check
             await self.summarizer.summarize_on_startup()
 
-        # Start sync task if enabled
+        # Start sync manager if enabled
         if self.config.enable_sync:
-            self._sync_task = asyncio.create_task(self._sync_loop())
+            await self.sync_manager.start()
 
         self._initialized = True
 
     async def close(self) -> None:
         """Shutdown the communal brain"""
-        if self._sync_task:
-            self._sync_task.cancel()
-            try:
-                await self._sync_task
-            except asyncio.CancelledError:
-                pass
+        # Stop sync manager
+        await self.sync_manager.stop()
 
         # Stop summarizer if running
         if self.summarizer:
@@ -357,122 +318,7 @@ class CommunalBrain:
 
     # Private methods
 
-    def _generate_device_id(self) -> str:
-        """Generate a unique device ID"""
-        # Use hostname + MAC address for uniqueness
-        hostname = self._get_hostname()
-        try:
-            # Get MAC address of first network interface
-            import uuid
-            mac = uuid.getnode()
-            mac_hex = ':'.join(['{:02x}'.format((mac >> elements) & 0xff)
-                               for elements in range(0, 8*6, 8)][::-1])
-            return f"{hostname}_{mac_hex}"
-        except:
-            # Fallback to hostname + random
-            return f"{hostname}_{str(uuid.uuid4())[:8]}"
-
-    def _detect_hardware_tier(self) -> DeviceTier:
-        """Auto-detect hardware tier based on system capabilities"""
-        try:
-            # Check CPU count
-            cpu_count = len(os.sched_getaffinity(0)) if hasattr(os, 'sched_getaffinity') else os.cpu_count() or 1
-
-            # Check memory
-            import psutil
-            memory_gb = psutil.virtual_memory().total / (1024**3)
-
-            # Simple heuristics
-            if memory_gb >= 32 and cpu_count >= 8:
-                return DeviceTier.SERVER
-            elif memory_gb >= 16 and cpu_count >= 4:
-                return DeviceTier.WORKSTATION
-            elif memory_gb >= 8 and cpu_count >= 2:
-                return DeviceTier.LAPTOP
-            else:
-                return DeviceTier.RASPBERRY_PI
-
-        except ImportError:
-            # psutil not available, use basic detection
-            return DeviceTier.LAPTOP
-
-    def _detect_capabilities(self) -> List[str]:
-        """Auto-detect device capabilities"""
-        capabilities = []
-
-        try:
-            import psutil
-
-            # Memory capability
-            memory_gb = psutil.virtual_memory().total / (1024**3)
-            if memory_gb >= 16:
-                capabilities.append('high_memory')
-            elif memory_gb >= 8:
-                capabilities.append('medium_memory')
-            else:
-                capabilities.append('low_memory')
-
-            # CPU capability
-            cpu_count = psutil.cpu_count(logical=True)
-            if cpu_count >= 8:
-                capabilities.append('multi_core')
-            elif cpu_count >= 4:
-                capabilities.append('quad_core')
-            else:
-                capabilities.append('low_core')
-
-        except ImportError:
-            capabilities.extend(['unknown_memory', 'unknown_cpu'])
-
-        # GPU detection (simplified)
-        try:
-            import torch
-            if torch.cuda.is_available():
-                capabilities.append('gpu')
-                capabilities.append('cuda')
-        except ImportError:
-            pass
-
-        # Network capability (assume all have basic network)
-        capabilities.append('network')
-
-        return capabilities
-
-    def _get_hostname(self) -> str:
-        """Get system hostname"""
-        return platform.node() or "unknown"
-
-    def _get_ip_address(self) -> Optional[str]:
-        """Get local IP address"""
-        try:
-            # Get the local IP address
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(("8.8.8.8", 80))  # Connect to Google DNS
-            ip = s.getsockname()[0]
-            s.close()
-            return ip
-        except:
-            return None
-
     async def _update_device_heartbeat(self) -> None:
         """Update device's last seen timestamp"""
         self.device_context.last_seen = datetime.now(timezone.utc)
         await self.storage.register_device(self.device_context)
-
-    async def _sync_loop(self) -> None:
-        """Background sync loop for cross-device synchronization"""
-        while True:
-            try:
-                await asyncio.sleep(self.config.sync_interval)
-                # TODO: Implement sync logic
-                # - Check for pending operations
-                # - Send local changes to other devices
-                # - Receive changes from other devices
-                # - Resolve conflicts
-                pass
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                # Log error but continue sync loop
-                print(f"Sync error: {e}")
-                await asyncio.sleep(self.config.sync_interval)

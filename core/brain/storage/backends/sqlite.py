@@ -1,147 +1,16 @@
 """
-Backward compatibility layer for storage module
-
-This module now imports from the new modular storage structure.
-All functionality has been moved to core/brain/storage/ for better organization.
+SQLite backend implementation for the communal brain storage
 """
 
-# Re-export everything from the new modular structure for backward compatibility
-from .storage.interfaces import StorageBackend, StorageBackendProtocol
-from .storage.config import StorageConfig
-from .storage.abstraction import StorageAbstraction
-from .storage.backends.sqlite import SQLiteBackend
+import asyncio
+import uuid
+from datetime import datetime, timezone
+from typing import List, Optional, Dict, Any, Tuple
+from pathlib import Path
 
-# Keep the old imports available for compatibility
-from .models import MemoryItem, KnowledgeItem, DeviceContext, SyncOperation, DeviceTier, DeviceStatus
-
-__all__ = [
-    'StorageBackend',
-    'StorageBackendProtocol',
-    'StorageConfig',
-    'StorageAbstraction',
-    'SQLiteBackend',
-    'MemoryItem',
-    'KnowledgeItem',
-    'DeviceContext',
-    'SyncOperation',
-    'DeviceTier',
-    'DeviceStatus'
-]
-
-
-class StorageBackend(ABC):
-    """Abstract base class for storage backends"""
-
-    @abstractmethod
-    async def initialize(self) -> None:
-        """Initialize the storage backend"""
-        pass
-
-    @abstractmethod
-    async def close(self) -> None:
-        """Close the storage backend"""
-        pass
-
-    @abstractmethod
-    async def store_memory(self, memory: MemoryItem) -> None:
-        """Store a memory item"""
-        pass
-
-    @abstractmethod
-    async def retrieve_memories(self, query_embedding: List[float], top_k: int = 5,
-                               device_filter: Optional[str] = None) -> List[MemoryItem]:
-        """Retrieve similar memories using vector search"""
-        pass
-
-    @abstractmethod
-    async def store_knowledge(self, knowledge: KnowledgeItem) -> None:
-        """Store a knowledge item"""
-        pass
-
-    @abstractmethod
-    async def retrieve_knowledge(self, query_embedding: List[float], top_k: int = 5,
-                                source_filter: Optional[str] = None) -> List[KnowledgeItem]:
-        """Retrieve similar knowledge using vector search"""
-        pass
-
-    @abstractmethod
-    async def get_memory_by_id(self, memory_id: str) -> Optional[MemoryItem]:
-        """Get a specific memory by ID"""
-        pass
-
-    @abstractmethod
-    async def get_knowledge_by_id(self, knowledge_id: str) -> Optional[KnowledgeItem]:
-        """Get a specific knowledge item by ID"""
-        pass
-
-    @abstractmethod
-    async def delete_memory(self, memory_id: str) -> bool:
-        """Delete a memory item"""
-        pass
-
-    @abstractmethod
-    async def delete_knowledge(self, knowledge_id: str) -> bool:
-        """Delete a knowledge item"""
-        pass
-
-    @abstractmethod
-    async def get_memory_count(self) -> int:
-        """Get total number of memories"""
-        pass
-
-    @abstractmethod
-    async def get_knowledge_count(self) -> int:
-        """Get total number of knowledge items"""
-        pass
-
-    @abstractmethod
-    async def register_device(self, device: DeviceContext) -> None:
-        """Register or update a device"""
-        pass
-
-    @abstractmethod
-    async def get_device(self, device_id: str) -> Optional[DeviceContext]:
-        """Get device information"""
-        pass
-
-    @abstractmethod
-    async def list_devices(self) -> List[DeviceContext]:
-        """List all registered devices"""
-        pass
-
-    @abstractmethod
-    async def store_sync_operation(self, operation: SyncOperation) -> None:
-        """Store a sync operation for later processing"""
-        pass
-
-    @abstractmethod
-    async def get_pending_sync_operations(self, device_id: str) -> List[SyncOperation]:
-        """Get pending sync operations for a device"""
-        pass
-
-    @abstractmethod
-    async def mark_sync_operation_resolved(self, operation_id: str) -> None:
-        """Mark a sync operation as resolved"""
-    @abstractmethod
-    async def store_conversation(self, session_id: str, conversation_data: Dict[str, Any]) -> None:
-        """Store conversation data"""
-        pass
-
-    @abstractmethod
-    async def load_conversation(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """Load conversation data"""
-        pass
-
-    @abstractmethod
-    async def list_conversations(self, limit: int = 50) -> List[Dict[str, Any]]:
-        """List conversations"""
-        pass
-
-    @abstractmethod
-    async def delete_conversation(self, session_id: str) -> bool:
-        """Delete a conversation"""
-        pass
-        pass
+from ..interfaces import StorageBackend
+from ..config import StorageConfig
+from ...models import MemoryItem, KnowledgeItem, DeviceContext, SyncOperation, DeviceTier, DeviceStatus
 
 
 class SQLiteBackend(StorageBackend):
@@ -302,7 +171,7 @@ class SQLiteBackend(StorageBackend):
         """Retrieve similar memories using cosine similarity"""
         import aiosqlite
         import json
-        from .vector_search import cosine_similarity
+        from ...vector_search import cosine_similarity
 
         async with aiosqlite.connect(self.db_path) as db:
             # Build query
@@ -380,7 +249,7 @@ class SQLiteBackend(StorageBackend):
         """Retrieve similar knowledge using cosine similarity"""
         import aiosqlite
         import json
-        from .vector_search import cosine_similarity
+        from ...vector_search import cosine_similarity
 
         async with aiosqlite.connect(self.db_path) as db:
             query = """
@@ -770,163 +639,3 @@ class SQLiteBackend(StorageBackend):
         """Convert bytes back to embedding list"""
         import struct
         return list(struct.unpack(f'{len(data)//4}f', data))
-
-
-class StorageAbstraction:
-    """Main storage abstraction that manages multiple backends"""
-
-    def __init__(self, config: StorageConfig):
-        self.config = config
-        self.backends: Dict[str, StorageBackend] = {}
-
-        # Initialize backends
-        self.backends['local'] = SQLiteBackend(config)
-
-        # TODO: Add remote PostgreSQL backend
-        # if config.remote_host:
-        #     self.backends['remote'] = PostgreSQLBackend(config)
-
-        # TODO: Add cache backend
-        # if config.cache_host:
-        #     if config.cache_type == 'redis':
-        #         self.backends['cache'] = RedisBackend(config)
-        #     else:
-        #         self.backends['cache'] = MemcachedBackend(config)
-
-    async def initialize(self) -> None:
-        """Initialize all configured backends"""
-        for backend in self.backends.values():
-            await backend.initialize()
-
-    async def close(self) -> None:
-        """Close all backends"""
-        for backend in self.backends.values():
-            await backend.close()
-
-    async def _get_primary_backend(self) -> StorageBackend:
-        """Get the primary backend for operations"""
-        return self.backends[self.config.primary_backend]
-
-    async def _get_cache_backend(self) -> Optional[StorageBackend]:
-        """Get cache backend if available"""
-        return self.backends.get('cache')
-
-    # Delegate methods to appropriate backends
-    async def store_memory(self, memory: MemoryItem) -> None:
-        primary = await self._get_primary_backend()
-        await primary.store_memory(memory)
-
-        # Also store in cache if available
-        cache = await self._get_cache_backend()
-        if cache:
-            await cache.store_memory(memory)
-
-    async def retrieve_memories(self, query_embedding: List[float], top_k: int = 5,
-                               device_filter: Optional[str] = None) -> List[MemoryItem]:
-        # Try cache first
-        cache = await self._get_cache_backend()
-        if cache:
-            cached_result = await cache.retrieve_memories(query_embedding, top_k, device_filter)
-            if cached_result:
-                return cached_result
-
-        # Fallback to primary
-        primary = await self._get_primary_backend()
-        result = await primary.retrieve_memories(query_embedding, top_k, device_filter)
-
-        # Cache the result
-        if cache and result:
-            for memory in result:
-                await cache.store_memory(memory)
-
-        return result
-
-    async def store_knowledge(self, knowledge: KnowledgeItem) -> None:
-        primary = await self._get_primary_backend()
-        await primary.store_knowledge(knowledge)
-
-        cache = await self._get_cache_backend()
-        if cache:
-            await cache.store_knowledge(knowledge)
-
-    async def retrieve_knowledge(self, query_embedding: List[float], top_k: int = 5,
-                                source_filter: Optional[str] = None) -> List[KnowledgeItem]:
-        cache = await self._get_cache_backend()
-        if cache:
-            cached_result = await cache.retrieve_knowledge(query_embedding, top_k, source_filter)
-            if cached_result:
-                return cached_result
-
-        primary = await self._get_primary_backend()
-        result = await primary.retrieve_knowledge(query_embedding, top_k, source_filter)
-
-        if cache and result:
-            for knowledge in result:
-                await cache.store_knowledge(knowledge)
-
-        return result
-
-    # Delegate other methods to primary backend
-    async def get_memory_by_id(self, memory_id: str) -> Optional[MemoryItem]:
-        primary = await self._get_primary_backend()
-        return await primary.get_memory_by_id(memory_id)
-
-    async def get_knowledge_by_id(self, knowledge_id: str) -> Optional[KnowledgeItem]:
-        primary = await self._get_primary_backend()
-        return await primary.get_knowledge_by_id(knowledge_id)
-
-    async def delete_memory(self, memory_id: str) -> bool:
-        primary = await self._get_primary_backend()
-        return await primary.delete_memory(memory_id)
-
-    async def delete_knowledge(self, knowledge_id: str) -> bool:
-        primary = await self._get_primary_backend()
-        return await primary.delete_knowledge(knowledge_id)
-
-    async def get_memory_count(self) -> int:
-        primary = await self._get_primary_backend()
-        return await primary.get_memory_count()
-
-    async def get_knowledge_count(self) -> int:
-        primary = await self._get_primary_backend()
-        return await primary.get_knowledge_count()
-
-    async def register_device(self, device: DeviceContext) -> None:
-        primary = await self._get_primary_backend()
-        await primary.register_device(device)
-
-    async def get_device(self, device_id: str) -> Optional[DeviceContext]:
-        primary = await self._get_primary_backend()
-        return await primary.get_device(device_id)
-
-    async def list_devices(self) -> List[DeviceContext]:
-        primary = await self._get_primary_backend()
-        return await primary.list_devices()
-
-    async def store_sync_operation(self, operation: SyncOperation) -> None:
-        primary = await self._get_primary_backend()
-        await primary.store_sync_operation(operation)
-
-    async def get_pending_sync_operations(self, device_id: str) -> List[SyncOperation]:
-        primary = await self._get_primary_backend()
-        return await primary.get_pending_sync_operations(device_id)
-
-    async def mark_sync_operation_resolved(self, operation_id: str) -> None:
-        primary = await self._get_primary_backend()
-        await primary.mark_sync_operation_resolved(operation_id)
-
-    async def store_conversation(self, session_id: str, conversation_data: Dict[str, Any]) -> None:
-        primary = await self._get_primary_backend()
-        await primary.store_conversation(session_id, conversation_data)
-
-    async def load_conversation(self, session_id: str) -> Optional[Dict[str, Any]]:
-        primary = await self._get_primary_backend()
-        return await primary.load_conversation(session_id)
-
-    async def list_conversations(self, limit: int = 50) -> List[Dict[str, Any]]:
-        primary = await self._get_primary_backend()
-        return await primary.list_conversations(limit)
-
-    async def delete_conversation(self, session_id: str) -> bool:
-        primary = await self._get_primary_backend()
-        return await primary.delete_conversation(session_id)

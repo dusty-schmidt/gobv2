@@ -1,0 +1,17 @@
+# Core Intelligence Framework Dependencies
+aiosqlite>=0.19.0      # Async SQLite operations
+psutil>=5.9.0          # Hardware capability detection
+
+# Mini Chatbot Dependencies
+openai>=1.12.0         # OpenAI API client
+numpy>=1.24.0          # Vector operations
+requests>=2.31.0       # HTTP client
+python-dotenv>=1.0.0   # Environment variables
+tomli>=2.0.0           # TOML configuration
+
+# Future Tier Dependencies (commented for now)
+# langchain>=0.1.0      # For advanced agent features
+# fastapi>=0.100.0      # For API server
+# uvicorn>=0.23.0       # ASGI server
+# redis>=4.6.0          # Caching and pub/sub
+# psycopg2>=2.9.0       # PostgreSQL support

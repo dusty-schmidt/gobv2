@@ -1,0 +1,18 @@
+# Virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# SQLite database and journals (optional: if you want to keep DB in repo, remove these)
+chatbot.db
+chatbot.db-shm
+chatbot.db-wal
+
+# Local editor / IDE files
+.vscode/
+*.swp
+
+# Logs
+*.log

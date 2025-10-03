@@ -1,0 +1,38 @@
+# dotenv files
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# Byte-compiled / optimized / DLL files
+*.pyc
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+
+# System files
+*.DS_Store
+Thumbs.db
+
+# node
+node_modules/
+# local backups
+.env.local.backup

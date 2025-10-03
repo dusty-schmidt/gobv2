@@ -264,41 +264,27 @@ class Chatbot:
         stats_before = await self.brain.get_memory_stats()
         memories_before = stats_before['memory_count']
 
-        # Generate embedding for the user message
-        import asyncio
-        query_embedding = await asyncio.get_event_loop().run_in_executor(
-            None, self.embeddings_mgr.encode, user_message
-        )
-
-        # Retrieve memories that will be used
-        retrieved_memories = await self.brain.retrieve_memories(
-            query_embedding,
-            top_k=self.config.memory.top_k,
-            min_similarity=self.config.memory.similarity_threshold
-        )
-
-        # Retrieve knowledge that will be used
-        retrieved_knowledge = await self.brain.retrieve_knowledge(
-            query_embedding,
-            top_k=self.config.knowledge.top_k,
-            min_similarity=self.config.knowledge.similarity_threshold
-        )
-
-        # Generate response and get token info
-        response, token_info = await self.chat_handler.generate_response(user_message, query_embedding)
+        # Generate response using ChatHandler (which now handles context, memories, and knowledge)
+        response, token_info = await self.chat_handler.generate_response(user_message)
 
         # Get memory count after
         stats_after = await self.brain.get_memory_stats()
         memories_after = stats_after['memory_count']
 
-        # Build statistics including token usage
+        # Get conversation context info for stats
+        conversation_turns = len(self.chat_handler.context_manager.conversation_history)
+        conversation_context_used = conversation_turns > 1  # True if we have conversation history
+
+        # Build statistics including token usage and conversation context
         stats = {
-            'memories_retrieved': len(retrieved_memories),
-            'knowledge_retrieved': len(retrieved_knowledge),
+            'memories_retrieved': 0,  # ChatHandler handles this internally now
+            'knowledge_retrieved': 0,  # ChatHandler handles this internally now
+            'conversation_context_used': conversation_context_used,
             'memories_saved': memories_after - memories_before,
             'total_memories': memories_after,
-            'retrieved_memory_scores': [m.relevance_score for m in retrieved_memories],
-            'retrieved_knowledge_scores': [k.relevance_score for k in retrieved_knowledge],
+            'retrieved_memory_scores': [],  # Would need to expose from ChatHandler if needed
+            'retrieved_knowledge_scores': [],  # Would need to expose from ChatHandler if needed
+            'conversation_turns': conversation_turns,
             'input_tokens': token_info.get('input_tokens', 0),
             'output_tokens': token_info.get('output_tokens', 0),
             'total_tokens': token_info.get('total_tokens', 0),
@@ -310,7 +296,7 @@ class Chatbot:
     async def run_interactive(self):
         """Run interactive chat loop with enhanced display"""
         print(Colors.header("💬 Interactive chat mode"))
-        print(Colors.dim("   Commands: 'exit', 'quit', 'bye' to end | 'stats' for database info | 'clear' to clear screen"))
+        print(Colors.dim("   Commands: 'exit', 'quit', 'bye' to end | 'stats' for brain info | 'clear' to reset conversation | 'debug' to toggle context inspection"))
         print()
 
         conversation_count = 0
@@ -334,7 +320,14 @@ class Chatbot:
                     continue
 
                 if user_input.lower() == 'clear':
-                    print("\033[2J\033[H")  # Clear screen
+                    self.chat_handler.clear_conversation()
+                    print("🧹 Conversation history cleared. Starting fresh!")
+                    continue
+
+                if user_input.lower() == 'debug':
+                    debug_state = self.chat_handler.toggle_debug()
+                    status = "ENABLED" if debug_state else "DISABLED"
+                    print(f"🔍 Debug mode {status}. Full LLM prompts will be displayed.\n")
                     continue
 
                 # Echo user input with color for readability
@@ -380,19 +373,17 @@ class Chatbot:
         # Build stats line
         parts = []
 
-        # Memories used
-        if stats['memories_retrieved'] > 0:
-            avg_score = sum(stats['retrieved_memory_scores']) / len(stats['retrieved_memory_scores'])
-            parts.append(f"📝 {stats['memories_retrieved']} memories used (avg similarity: {avg_score:.2f})")
+        # Conversation context used
+        if stats.get('conversation_context_used', False):
+            parts.append(f"💬 Conversation context active ({stats.get('conversation_turns', 0)} turns)")
         else:
-            parts.append("📝 No memories used")
+            parts.append("💬 New conversation started")
 
-        # Knowledge used
-        if stats['knowledge_retrieved'] > 0:
-            avg_score = sum(stats['retrieved_knowledge_scores']) / len(stats['retrieved_knowledge_scores'])
-            parts.append(f"📚 {stats['knowledge_retrieved']} knowledge chunks used (avg similarity: {avg_score:.2f})")
-        else:
-            parts.append("📚 No knowledge used")
+        # Memories used (simplified since ChatHandler handles this internally)
+        parts.append("📝 Memories accessed via communal brain")
+
+        # Knowledge used (simplified since ChatHandler handles this internally)
+        parts.append("📚 Knowledge accessed via communal brain")
 
         # Memories saved
         if stats['memories_saved'] > 0:
@@ -413,9 +404,9 @@ class Chatbot:
 
         # Display with color
         stats_line = Colors.stats(" | ".join(parts))
-        print(Colors.dim("─" * 60))
+        print(Colors.dim("─" * 80))
         print(stats_line)
-        print(Colors.dim("─" * 60))
+        print(Colors.dim("─" * 80))
 
     async def show_stats(self):
         """Display chatbot statistics"""

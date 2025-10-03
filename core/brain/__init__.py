@@ -9,6 +9,7 @@ from .storage import StorageAbstraction, StorageConfig
 from .models import DeviceContext, MemoryItem, KnowledgeItem, DeviceTier, DeviceStatus
 from .brain import CommunalBrain, BrainConfig
 from .vector_search import cosine_similarity, euclidean_distance
+from ..agents.summarizer import SummarizerAgent, SummarizerConfig
 
 __all__ = [
     'CommunalBrain',
@@ -20,6 +21,8 @@ __all__ = [
     'KnowledgeItem',
     'DeviceTier',
     'DeviceStatus',
+    'SummarizerAgent',
+    'SummarizerConfig',
     'cosine_similarity',
     'euclidean_distance'
 ]

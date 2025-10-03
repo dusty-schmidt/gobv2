@@ -9,11 +9,12 @@ import socket
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from pathlib import Path
 
 from .models import DeviceContext, DeviceTier, DeviceStatus, MemoryItem, KnowledgeItem
 from .storage import StorageAbstraction, StorageConfig
+from ..agents.summarizer import SummarizerAgent, SummarizerConfig
 
 
 @dataclass
@@ -44,6 +45,10 @@ class BrainConfig:
     max_knowledge_items: int = 50000
     auto_cleanup_threshold: float = 0.8  # Cleanup when 80% full
 
+    # Summarizer settings
+    enable_summarizer: bool = True
+    summarizer: SummarizerConfig = field(default_factory=SummarizerConfig)
+
 
 class CommunalBrain:
     """
@@ -72,6 +77,7 @@ class CommunalBrain:
         # Runtime state
         self._initialized = False
         self._sync_task: Optional[asyncio.Task] = None
+        self.summarizer: Optional[SummarizerAgent] = None
 
     async def initialize(self) -> None:
         """Initialize the communal brain and register this device"""
@@ -83,6 +89,18 @@ class CommunalBrain:
 
         # Register this device
         await self.storage.register_device(self.device_context)
+
+        # Initialize summarizer if enabled
+        if self.config.enable_summarizer:
+            from pathlib import Path
+            data_dir = Path(__file__).parent.parent / "data"
+            self.summarizer = SummarizerAgent(data_dir, self.config.summarizer)
+
+            # Start background monitoring
+            await self.summarizer.start_background_monitoring()
+
+            # Run startup summarization check
+            await self.summarizer.summarize_on_startup()
 
         # Start sync task if enabled
         if self.config.enable_sync:
@@ -98,6 +116,10 @@ class CommunalBrain:
                 await self._sync_task
             except asyncio.CancelledError:
                 pass
+
+        # Stop summarizer if running
+        if self.summarizer:
+            await self.summarizer.stop_background_monitoring()
 
         await self.storage.close()
         self._initialized = False
@@ -266,6 +288,72 @@ class CommunalBrain:
 
         # Re-register with updated context
         await self.storage.register_device(self.device_context)
+
+    # Summarizer methods
+
+    async def check_context_size(self, context_text: str) -> Tuple[bool, Optional[str]]:
+        """Check if context is too large and return suggested summary if needed"""
+        if self.summarizer:
+            return await self.summarizer.check_context_size(context_text)
+        return False, None
+
+    async def manual_summarize_file(self, filepath: Path) -> bool:
+        """Manually trigger summarization of a specific conversation file"""
+        if self.summarizer:
+            return await self.summarizer.manual_summarize_file(filepath)
+        return False
+
+    async def get_summarizer_stats(self) -> Optional[Dict]:
+        """Get summarizer statistics"""
+        if self.summarizer:
+            return self.summarizer.get_stats()
+        return None
+    async def store_conversation(self, session_id: str, conversation_data: Dict[str, Any]) -> None:
+        """Store conversation data in the communal brain
+
+        Args:
+            session_id: Unique conversation session ID
+            conversation_data: Conversation data dictionary
+        """
+        await self.storage.store_conversation(session_id, conversation_data)
+
+    async def load_conversation(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Load conversation data from the communal brain
+
+        Args:
+            session_id: Unique conversation session ID
+
+        Returns:
+            Conversation data dictionary or None if not found
+        """
+        return await self.storage.load_conversation(session_id)
+
+    async def list_conversations(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """List recent conversations
+
+        Args:
+            limit: Maximum number of conversations to return
+
+        Returns:
+            List of conversation metadata
+        """
+        return await self.storage.list_conversations(limit)
+
+    async def delete_conversation(self, session_id: str) -> bool:
+        """Delete a conversation from the communal brain
+
+        Args:
+            session_id: Unique conversation session ID
+
+        Returns:
+            True if deleted, False if not found
+        """
+        return await self.storage.delete_conversation(session_id)
+
+    async def trigger_startup_summarization(self) -> None:
+        """Manually trigger startup summarization check"""
+        if self.summarizer:
+            await self.summarizer.summarize_on_startup()
 
     # Private methods
 

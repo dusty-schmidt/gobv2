@@ -1,0 +1,31 @@
+=== MINI CHATBOT CONTEXT ===
+Timestamp: 2025-10-03T11:31:59.880878
+
+=== RECENT CONVERSATION HISTORY ===
+
+=== RELEVANT LONG-TERM MEMORIES ===
+**Memory 1** (relevance: 1.00):
+  User asked: Test Mini context
+  Assistant replied: Got it—your “mini‑context” test is logged and active. 🚀  
+
+What would you like to dive into today? A quick config tweak, an open‑source tool you’re eyeing, or a privacy‑first workflow? Let me know and we’ll jump right in!
+**Memory 2** (relevance: 1.00):
+  User asked: Test Mini context
+  Assistant replied: Got it—your “mini‑context” test is logged and active. 🚀  
+
+Anything specific you’d like to dive into today? Maybe a quick configuration tweak, a piece of open‑source tooling, or just a chat about privacy‑first workflows? Let me know!
+**Memory 3** (relevance: 0.87):
+  User asked: Test context
+  Assistant replied: Got it—your “test context” is logged and active. 🚀  
+
+Anything specific you’d like to dive into today? Whether it’s a configuration tweak, a new open‑source tool you’re eyeing, or a privacy‑focused workflow, just let me know and we’ll jump right in!
+
+=== CURRENT USER MESSAGE ===
+Test Mini context
+
+=== DEBUG INFO ===
+Conversation turns: 1
+Memories retrieved: 3
+Knowledge retrieved: 0
+Debug mode: False
+Current user message: Test Mini context

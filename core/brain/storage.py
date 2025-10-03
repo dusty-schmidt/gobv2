@@ -137,6 +137,25 @@ class StorageBackend(ABC):
     @abstractmethod
     async def mark_sync_operation_resolved(self, operation_id: str) -> None:
         """Mark a sync operation as resolved"""
+    @abstractmethod
+    async def store_conversation(self, session_id: str, conversation_data: Dict[str, Any]) -> None:
+        """Store conversation data"""
+        pass
+
+    @abstractmethod
+    async def load_conversation(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Load conversation data"""
+        pass
+
+    @abstractmethod
+    async def list_conversations(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """List conversations"""
+        pass
+
+    @abstractmethod
+    async def delete_conversation(self, session_id: str) -> bool:
+        """Delete a conversation"""
+        pass
         pass
 
 

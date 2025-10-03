@@ -31,6 +31,22 @@ from .logging import (
     get_logger
 )
 
+from .interfaces import (
+    StorageProtocol,
+    SummarizerProtocol,
+    LLMClientProtocol,
+    EmbeddingsClientProtocol,
+    VectorSearchProtocol,
+    DeviceRegistryProtocol,
+    SyncManagerProtocol,
+    ConversationStorageProtocol
+)
+
+from .agents import (
+    SummarizerAgent,
+    SummarizerConfig
+)
+
 __all__ = [
     # Brain components
     'CommunalBrain',
@@ -53,7 +69,21 @@ __all__ = [
 
     # Global logging
     'configure_global_logging',
-    'get_logger'
+    'get_logger',
+
+    # Protocol interfaces
+    'StorageProtocol',
+    'SummarizerProtocol',
+    'LLMClientProtocol',
+    'EmbeddingsClientProtocol',
+    'VectorSearchProtocol',
+    'DeviceRegistryProtocol',
+    'SyncManagerProtocol',
+    'ConversationStorageProtocol',
+
+    # Agents
+    'SummarizerAgent',
+    'SummarizerConfig'
 ]
 
 __version__ = "1.0.0"
